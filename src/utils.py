@@ -54,19 +54,15 @@ def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None):
   return {"text":template}
 
 
-def add_src_tgt_tag(df,to_dataset:bool=False)
+def add_src_tgt_tag(dataset,seed):
 
     # split ko->eng and eng->ko
-    cut_off=len(df)//2
-    src_tags=["korean"]*cut_off + ["english"]*(len(df)-cut_off)
-    tgt_tags=["english"]*cut_off + ["korean"]*(len(df)-cut_off)
-    df["src"]=src_tags
-    df["tgt"]=tgt_tags
-
-    if not to_dataset:
-        return df.sample(frac=1).reset_index(drop=True)
-    else:
-        return Dataset.from_pandas(df.sample(frac=1).reset_index(drop=True))
+    cut_off=len(dataset)//2
+    src_tags=["korean"]*cut_off + ["english"]*(len(dataset)-cut_off)
+    tgt_tags=["english"]*cut_off + ["korean"]*(len(dataset)-cut_off)
+    dataset=dataset.add_column("src",src_tags)
+    dataset=dataset.add_column("tgt",tgt_tags)
+    return dataset
 
 def merge_and_resort(df1,df2):
     '''
@@ -85,7 +81,6 @@ def merge_and_resort(df1,df2):
     
     merged_df=pd.merge(df1,df2,on="id")
     merged_df=merged_df.sample(frac=1).reset_index(drop=True)
-    merged_df=add_src_tgt_tag(merged_df)
 
     term_dict=[invert_dict(t_d,s) for t_d,s in zip(merged_df["term_dict"].values,merged_df["src"].values)]
     merged_df["term_dict"]=term_dict
@@ -124,6 +119,7 @@ def prepare_translation_dataset(raw_dataset_path,term_dict_path):
     merged_df=merge_and_resort(df1,df2)
 
     dataset=Dataset.from_pandas(merged_df)
+    dataset=add_src_tgt_tag(dataset).shuffle()
     return dataset.map(make_translation_prompt)
     
     
