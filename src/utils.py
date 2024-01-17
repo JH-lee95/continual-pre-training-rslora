@@ -14,7 +14,7 @@ def check_if_translation_orca(sample):
             return True
     return False
 
-def make_translation_prompt(data,src:str=None, tgt:str=None):
+def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None):
 
   lang_dict={"korean":"한국어","english":"영어","ko":"한국어","eng":"영어"}
 
@@ -31,17 +31,17 @@ def make_translation_prompt(data,src:str=None, tgt:str=None):
 ### Input:
 {data[src]}
 ### Output:
-{data[tgt]}
+{data[tgt]}{tokenizer.eos_token}
 """
   else:
     template = f"""### Instruction:
-아래의 용어사전의 참조하여, {lang_dict[src]}를 {lang_dict[tgt]}로 번역하시오.
+아래의 용어사전을 참조하여, {lang_dict[src]}를 {lang_dict[tgt]}로 번역하시오.
 
 용어사전 : {data["term_dict"]}
 ### Input:
 {data[src]}
 ### Output:
-{data[tgt]}
+{data[tgt]}{tokenizer.eos_token}
 """
 
   return {"text":template}
