@@ -1,3 +1,10 @@
+import os,sys
+import random
+import numpy as np
+import torch
+import pandas as pd
+from datasets import load_dataset,Dataset,concatenate_datasets
+
 def seed_everything(seed: int = 42):
     random.seed(seed)
     np.random.seed(seed)
@@ -47,6 +54,20 @@ def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None):
   return {"text":template}
 
 
+def add_src_tgt_tag(df,to_dataset:bool=False)
+
+    # split ko->eng and eng->ko
+    cut_off=len(df)//2
+    src_tags=["korean"]*cut_off + ["english"]*(len(df)-cut_off)
+    tgt_tags=["english"]*cut_off + ["korean"]*(len(df)-cut_off)
+    df["src"]=src_tags
+    df["tgt"]=tgt_tags
+
+    if not to_dataset:
+        return df.sample(frac=1).reset_index(drop=True)
+    else:
+        return Dataset.from_pandas(df.sample(frac=1).reset_index(drop=True))
+
 def merge_and_resort(df1,df2):
     '''
     df1 : origianl dataset
@@ -63,19 +84,11 @@ def merge_and_resort(df1,df2):
             return ""
     
     merged_df=pd.merge(df1,df2,on="id")
-    # merged_df=pd.merge(df1,df2,on="id",how="outer").drop_duplicates(subset="id")
     merged_df=merged_df.sample(frac=1).reset_index(drop=True)
-
-    # split ko->eng and eng->ko
-    cut_off=len(merged_df)//2
-    src_tags=["korean"]*cut_off + ["english"]*(len(merged_df)-cut_off)
-    tgt_tags=["english"]*cut_off + ["korean"]*(len(merged_df)-cut_off)
-    merged_df["src"]=src_tags
-    merged_df["tgt"]=tgt_tags
+    merged_df=add_src_tgt_tag(merged_df)
 
     term_dict=[invert_dict(t_d,s) for t_d,s in zip(merged_df["term_dict"].values,merged_df["src"].values)]
     merged_df["term_dict"]=term_dict
-    merged_df=merged_df.sample(frac=1).reset_index(drop=True)
 
     return merged_df
 

@@ -1,6 +1,4 @@
 from transformers import (
-  AutoModelForCausalLM, 
-  AutoTokenizer, 
   BitsAndBytesConfig,
   TrainingArguments,
     Trainer,
@@ -9,21 +7,15 @@ from transformers import (
   )
 import bitsandbytes as bnb
 from peft import LoraConfig, PeftModel, prepare_model_for_kbit_training, get_peft_model
-import os, wandb, platform, warnings,sys
-from datasets import load_dataset,Dataset,concatenate_datasets
+import os, platform, warnings,sys
 from trl import SFTTrainer,DataCollatorForCompletionOnlyLM
 import argparse
-import torch
-import numpy as np
 import random
-from align_chat_template import *
 from utils import *
-
 import ipdb
 from prettytable import PrettyTable
 import mlflow
-import chat_template
-from train_modules import *
+from training_modules import *
 
 def parse_args():
 
@@ -55,6 +47,7 @@ def parse_args():
     parser.add_argument("--expr_desc",type=str,help = "description for experiment", default = None)
     parser.add_argument("--train",type=bool, default=True)
     parser.add_argument("--test",type=bool, default=False)
+    parser.add_argument("--local_rank")
 
     return parser.parse_args()
 
@@ -69,6 +62,7 @@ def main(args):
 
     ######################################### model #########################################
     model=load_model(args.base_model_dir,gradient_checkpointing=args.gradient_checkpointing,quantization_config=None)
+    model=model.to("cuda")
     model.config.use_cache = False # use_cache is only for infernce
 
     if model.config.max_position_embeddings<args.max_len:
@@ -92,11 +86,11 @@ def main(args):
 
 
     ######################################### tokenizer & dataset #########################################
-    tokenizer=load_tokenizer(args.base_model_dir,chat_template=chat_template.chat_ml)
+    tokenizer=load_tokenizer(args.base_model_dir)
 
     print(f"eos_token is : {tokenizer.eos_token}")
     
-    train_dataset,eval_dataset=load_and_prepare_dataset(tokenizer)
+    train_dataset,eval_dataset=load_and_prepare_dataset(tokenizer=tokenizer,seed=args.seed)
     # train_dataset=load_and_prepare_dataset(tokenizer)
     
     if len(tokenizer)!=int(model.config.vocab_size):
