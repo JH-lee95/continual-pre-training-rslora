@@ -52,6 +52,7 @@ def parse_args():
     return parser.parse_args()
 
 def set_environ(args):
+    os.environ["TOKENIZERS_PARALLELISM"]="false"
     os.environ["MLFLOW_EXPERIMENT_NAME"]=args.expr_name
     # os.environ["MLFLOW_TRACKING_URI"]=args.mlflow_dir
     # os.environ["HF_MLFLOW_LOG_ARTIFACTS"]="1"
@@ -90,7 +91,7 @@ def main(args):
 
     print(f"eos_token is : {tokenizer.eos_token}")
     
-    train_dataset,eval_dataset=load_and_prepare_dataset(tokenizer=tokenizer,seed=args.seed)
+    train_dataset,eval_dataset=load_and_prepare_dataset(tokenizer=tokenizer,seed=args.seed,max_len=args.max_len)
     # train_dataset=load_and_prepare_dataset(tokenizer)
     
     if len(tokenizer)!=int(model.config.vocab_size):

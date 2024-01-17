@@ -43,6 +43,7 @@ def load_model(base_model_path,
         trust_remote_code=True, 
         use_cache=False if gradient_checkpointing else True, # use_cache is incompatible with gradient_checkpointing
         torch_dtype="auto",
+        # device_map="cuda",
         attn_implementation="flash_attention_2",
         cache_dir="/root/azurestorage/huggingface_cache/models",
     )
@@ -51,7 +52,7 @@ def load_model(base_model_path,
     return model
 
 
-def load_and_prepare_dataset(tokenizer,seed):
+def load_and_prepare_dataset(tokenizer,seed,max_len):
  
     dataset_group0=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/dedup/group0")
     dataset_group1=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/dedup/group1")
@@ -62,18 +63,18 @@ def load_and_prepare_dataset(tokenizer,seed):
     
     dataset=add_src_tgt_tag(dataset)
     dataset=dataset.map(make_translation_prompt,fn_kwargs={"tokenizer":tokenizer})
-    dataset=dataset.filter(lambda x:len(tokenizer.tokenize(x["text"]))<args.max_len) # to guarantee perfect completion up to eos token,
+    dataset=dataset.filter(lambda x:len(tokenizer.tokenize(x["text"]))<max_len) # to guarantee perfect completion up to eos token,
     print("-------example-------\n",dataset[0]["text"])
 
     flores_eval_dataset=load_dataset("jhflow/flores_ko_eng",token="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")
-    flores_eval_dataset=flores_eval_dataset.map(make_translation_prompt,fn_kwargs)
+    flores_eval_dataset=flores_eval_dataset.map(make_translation_prompt,fn_kwargs={"tokenizer":tokenizer})
     
     return dataset,flores_eval_dataset
 
 
 def load_optimizer_scheduler(model,
                         learning_rate, 
-                        weight_deacy,
+                        weight_decay,
                         total_update_steps, 
                         warmup_ratio,   
                         quantize=True,  
@@ -82,13 +83,13 @@ def load_optimizer_scheduler(model,
 
     if quantize:
         optimizer = bnb.optim.Adam8bit(params=filter(lambda x:x.requires_grad,model.parameters()), 
-                                    lr=args.learning_rate, 
-                                    weight_deacy=args.weight_decay,
+                                    lr=learning_rate, 
+                                    weight_decay=weight_decay,
                                     )
 
         # optimizer= bnb.optim.PagedAdam8bit(params=filter(lambda x:x.requires_grad,model.parameters()), 
-        #                             lr=args.learning_rate, 
-        #                             weight_deacy=args.weight_decay,
+        #                             lr=learning_rate, 
+        #                             weight_decay=weight_decay,
         #                             )
 
         for module in model.modules():
@@ -98,8 +99,8 @@ def load_optimizer_scheduler(model,
                 )         
     else:
         optimizer=AdamW(params=filter(lambda x:x.requires_grad,model.parameters()),
-                        lr=args.learning_rate,
-                        weight_decay=args.weight_decay
+                        lr=learning_rate,
+                        weight_decay=weight_decay
                         )
 
 

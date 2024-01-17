@@ -54,7 +54,7 @@ def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None):
   return {"text":template}
 
 
-def add_src_tgt_tag(dataset,seed):
+def add_src_tgt_tag(dataset):
 
     # split ko->eng and eng->ko
     cut_off=len(dataset)//2
