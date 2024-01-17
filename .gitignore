@@ -1,0 +1,3 @@
+ipynbs/
+*/__pycache__/
+mlruns/
