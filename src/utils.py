@@ -110,7 +110,8 @@ def prepare_translation_dataset(raw_dataset_path,term_dict_path):
     df2=pd.DataFrame(valid_data)
     merged_df=merge_and_resort(df1,df2)
 
-    return Dataset.from_pandas(merged_df)
+    dataset=Dataset.from_pandas(merged_df)
+    return dataset.map(make_translation_prompt)
     
     
     

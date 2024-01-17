@@ -55,8 +55,13 @@ def load_model(base_model_path,
 
 def load_and_prepare_dataset(tokenizer):
  
-    dataset=Dataset.load_from_disk(args.dataset_dir)
-    dataset=prepare_translation_dataset("/root/azurestorage/data/번역데이터셋/aligned_dataset/translation_sampled_120k/","/root/azurestorage/data/번역데이터셋/aligned_dataset/term_dict_result.jsonl")
+    dataset_group0=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/dedup/group0")
+    dataset_group1=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/dedup/group1")
+    dataset_group2=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/dedup/group2")
+    dataset_group3=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/dedup/group3")
+    dataset=concatenate_datasets(dataset_group0,dataset_group1,dataset_group2,dataset_group3).shuffle(seed=args.seed)
+    # dataset=prepare_translation_dataset("/root/azurestorage/data/번역데이터셋/aligned_dataset/translation_sampled_120k/","/root/azurestorage/data/번역데이터셋/aligned_dataset/term_dict_result.jsonl")
+    
     dataset=ds.map(make_translation_prompt)
     dataset=dataset.filter(lambda x:len(tokenizer.tokenize(x["text"]))<args.max_len) # to guarantee perfect completion up to eos token,
     print("-------example-------\n",dataset[0]["text"])
