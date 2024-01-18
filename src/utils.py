@@ -23,7 +23,7 @@ def check_if_translation_orca(sample):
 
 def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None):
 
-  lang_dict={"korean":"한국어","english":"영어","ko":"한국어","eng":"영어"}
+  lang_dict={"korean":"한국어","english":"영어","ko":"한국어","eng":"영어","en":"영어"}
 
   if not src and not tgt:
     if "src" in data.keys() and "tgt" in data.keys():
@@ -72,9 +72,9 @@ def merge_and_resort(df1,df2):
 
     def invert_dict(term_dict,src):
         if term_dict is not np.nan:
-            if src=="korean":
+            if src=="korean" or src== "ko":
                 return str(term_dict)
-            elif src=="english":
+            elif src=="english" or src == "english" :
                 return str({v:k for k,v in term_dict.items()})
         else:
             return ""

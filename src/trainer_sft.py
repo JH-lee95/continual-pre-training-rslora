@@ -47,7 +47,6 @@ def parse_args():
     parser.add_argument("--expr_desc",type=str,help = "description for experiment", default = None)
     parser.add_argument("--train",type=bool, default=True)
     parser.add_argument("--test",type=bool, default=False)
-    parser.add_argument("--local_rank")
 
     return parser.parse_args()
 
@@ -63,7 +62,6 @@ def main(args):
 
     ######################################### model #########################################
     model=load_model(args.base_model_dir,gradient_checkpointing=args.gradient_checkpointing,quantization_config=None)
-    model=model.to("cuda")
     model.config.use_cache = False # use_cache is only for infernce
 
     if model.config.max_position_embeddings<args.max_len:
@@ -129,7 +127,7 @@ def main(args):
         # fp16= True,
         bf16= True,
         # run_name=args.expr_desc,
-        metric_for_best_model="eval_loss",
+        # metric_for_best_model="eval_loss",
        # ddp_find_unused_parameters=False,
         # torch_compile=True,
                         )
@@ -154,6 +152,9 @@ def main(args):
     response_template_with_context = "\n### Output:\n"  # We added context here: "\n". This is enough for this tokenizer
     response_template_ids = tokenizer.encode(response_template_with_context, add_special_tokens=False)[2:]
     collator=DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
+
+    print("device : ",training_arguments.device)
+    print("local rank : ",training_arguments.local_rank)
 
     trainer = SFTTrainer(
     args=training_arguments,
@@ -180,8 +181,7 @@ def main(args):
       if args.ckpt_dir is not None:
         trainer.train(args.ckpt_dir)
       else:
-        trainer.train()
-        trainer.save_model(output_dir+"/full_model")    
+        trainer.train() 
         
     mlflow.end_run()
     

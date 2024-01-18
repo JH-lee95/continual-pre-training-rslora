@@ -66,7 +66,7 @@ def load_and_prepare_dataset(tokenizer,seed,max_len):
     dataset=dataset.filter(lambda x:len(tokenizer.tokenize(x["text"]))<max_len) # to guarantee perfect completion up to eos token,
     print("-------example-------\n",dataset[0]["text"])
 
-    flores_eval_dataset=load_dataset("jhflow/flores_ko_eng",token="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")
+    flores_eval_dataset=load_dataset("jhflow/flores_ko_eng",token="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",split="dev")
     flores_eval_dataset=flores_eval_dataset.map(make_translation_prompt,fn_kwargs={"tokenizer":tokenizer})
     
     return dataset,flores_eval_dataset
