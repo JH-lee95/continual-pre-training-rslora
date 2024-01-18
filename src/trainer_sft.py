@@ -101,7 +101,7 @@ def main(args):
     
     
     ######################################## Optimizer & Scheduler #########################################
-    total_update_steps=int((len(train_dataset)*args.epoch_size)/(args.batch_size*args.gradient_accumulation_steps))
+    total_update_steps=int((len(train_dataset)*args.epoch_size)/(args.batch_size*args.gradient_accumulation_steps*torch.cuda.device_count()))
 
     optimizer,scheduler=load_optimizer_scheduler(model=model,
                                                 learning_rate=args.learning_rate,
