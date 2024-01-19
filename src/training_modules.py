@@ -54,17 +54,13 @@ def load_model(base_model_path,
 
 def load_and_prepare_dataset(tokenizer,seed,max_len):
  
-    dataset_group0=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/dedup/group0")
-    dataset_group1=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/dedup/group1")
-    dataset_group2=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/dedup/group2")
-    dataset_group3=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/dedup/group3")
-    dataset=concatenate_datasets([dataset_group0,dataset_group1,dataset_group2,dataset_group3]).shuffle(seed=seed)
+  
     # dataset=prepare_translation_dataset("/root/azurestorage/data/번역데이터셋/aligned_dataset/translation_sampled_120k/","/root/azurestorage/data/번역데이터셋/aligned_dataset/term_dict_result.jsonl")
-    
-    dataset=add_src_tgt_tag(dataset)
+    # dataset=add_src_tgt_tag(dataset)
+
+    dataset=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/final_dataset_with_term_dict")
     dataset=dataset.map(make_translation_prompt,fn_kwargs={"tokenizer":tokenizer})
     dataset=dataset.filter(lambda x:len(tokenizer.tokenize(x["text"]))<max_len) # to guarantee perfect completion up to eos token,
-    print("-------example-------\n",dataset[0]["text"])
 
     flores_eval_dataset=load_dataset("jhflow/flores_ko_eng",token="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",split="dev")
     flores_eval_dataset=flores_eval_dataset.map(make_translation_prompt,fn_kwargs={"tokenizer":tokenizer})

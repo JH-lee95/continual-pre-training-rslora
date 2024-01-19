@@ -60,6 +60,17 @@ def set_environ(args):
 
 def main(args):
 
+    ######################################### General Settings #########################################
+    expr_name=f"{args.expr_name}_v1"
+    output_dir= f"{args.base_dir}/trained/{expr_name}"
+
+    while os.path.exists(output_dir):
+        expr_name=expr_name.split("_v")[0]+"_v"+str(int(expr_name.split("_v")[-1])+1)
+        output_dir= f"{args.base_dir}/trained/{expr_name}"
+
+    local_rank=str(os.environ['LOCAL_RANK'])
+    ####################################################################################################
+
     ######################################### model #########################################
     model=load_model(args.base_model_dir,gradient_checkpointing=args.gradient_checkpointing,quantization_config=None)
     model.config.use_cache = False # use_cache is only for infernce
@@ -85,18 +96,16 @@ def main(args):
 
 
     ######################################### tokenizer & dataset #########################################
-    tokenizer=load_tokenizer(args.base_model_dir)
-
-    print(f"eos_token is : {tokenizer.eos_token}")
-    
+    tokenizer=load_tokenizer(args.base_model_dir)    
     train_dataset,eval_dataset=load_and_prepare_dataset(tokenizer=tokenizer,seed=args.seed,max_len=args.max_len)
+
+    if local_rank=="0":
+        print("-------example-------\n",train_dataset[0]["text"])
     # train_dataset=load_and_prepare_dataset(tokenizer)
     
     if len(tokenizer)!=int(model.config.vocab_size):
         model.resize_token_embeddings(len(tokenizer))
     assert len(tokenizer)==int(model.config.vocab_size) , 'vocab sizes of the tokenizer and the model should be same'
-    print(f"len tokenizer : {len(tokenizer)}")
-    print(f"model token size : {model.config.vocab_size}")
     #######################################################################################################
     
     
@@ -112,14 +121,6 @@ def main(args):
     #######################################################################################################
 
     ######################################### Trainer Setiings #########################################
-    expr_name=f"{args.expr_name}_v1"
-    output_dir= f"{args.base_dir}/trained/{expr_name}"
-
-    while os.path.exists(output_dir):
-        expr_name=expr_name.split("_v")[0]+"_v"+str(int(expr_name.split("_v")[-1])+1)
-        output_dir= f"{args.base_dir}/trained/{expr_name}"
-        
-
     eval_steps=int(total_update_steps/args.num_save_per_epoch)
     # eval_steps=100
 
@@ -128,7 +129,7 @@ def main(args):
         bf16= True,
         # run_name=args.expr_desc,
         # metric_for_best_model="eval_loss",
-       # ddp_find_unused_parameters=False,
+       ddp_find_unused_parameters=False,
         # torch_compile=True,
                         )
     training_arguments=training_arguments.set_dataloader(train_batch_size=args.batch_size,
@@ -153,9 +154,6 @@ def main(args):
     response_template_ids = tokenizer.encode(response_template_with_context, add_special_tokens=False)[2:]
     collator=DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
-    print("device : ",training_arguments.device)
-    print("local rank : ",training_arguments.local_rank)
-
     trainer = SFTTrainer(
     args=training_arguments,
     model=model,
@@ -170,12 +168,14 @@ def main(args):
     # packing= True,
     )
     ######################################################################################################
-
-    args_table = PrettyTable(["Argument", "Value"])
-    for k,v in training_arguments.__dict__.items():
-        args_table.add_row([k,v])
-    args_table.add_row(["total_update_steps",total_update_steps])
-    print(args_table)
+    print("detected device : ",training_arguments.device)
+   
+    if local_rank=="0":
+        args_table = PrettyTable(["Argument", "Value"])
+        for k,v in training_arguments.__dict__.items():
+            args_table.add_row([k,v])
+        args_table.add_row(["total_update_steps",total_update_steps])
+        print(args_table)
 
     if args.train:
       if args.ckpt_dir is not None:
