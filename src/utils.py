@@ -79,7 +79,7 @@ def merge_and_resort(df1,df2):
         else:
             return ""
     
-    merged_df=pd.merge(df1,df2,on="id")
+    merged_df=pd.merge(df1,df2,on="id",how="left").fillna({"maps":""})
     merged_df=merged_df.sample(frac=1).reset_index(drop=True)
 
     term_dict=[invert_dict(t_d,s) for t_d,s in zip(merged_df["term_dict"].values,merged_df["src"].values)]
@@ -107,6 +107,7 @@ def filter_valid_data(data):
 
 def prepare_translation_dataset(raw_dataset_path,term_dict_path):
     dataset=Dataset.load_from_disk(raw_dataset_path)
+    dataset=add_src_tgt_tag(dataset).shuffle()
     df1=pd.DataFrame(dataset)
 
     term_dict_data=[]
@@ -119,8 +120,7 @@ def prepare_translation_dataset(raw_dataset_path,term_dict_path):
     merged_df=merge_and_resort(df1,df2)
 
     dataset=Dataset.from_pandas(merged_df)
-    dataset=add_src_tgt_tag(dataset).shuffle()
-    return dataset.map(make_translation_prompt)
+    return dataset
     
     
     
