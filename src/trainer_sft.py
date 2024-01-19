@@ -68,7 +68,10 @@ def main(args):
         expr_name=expr_name.split("_v")[0]+"_v"+str(int(expr_name.split("_v")[-1])+1)
         output_dir= f"{args.base_dir}/trained/{expr_name}"
 
-    local_rank=str(os.environ['LOCAL_RANK'])
+    try:
+        local_rank=str(os.environ['LOCAL_RANK'])
+    except KeyError: # single gpu
+        local_rank="0"
     ####################################################################################################
 
     ######################################### model #########################################
@@ -122,7 +125,7 @@ def main(args):
 
     ######################################### Trainer Setiings #########################################
     eval_steps=int(total_update_steps/args.num_save_per_epoch)
-    # eval_steps=100
+    # eval_steps=5
 
     training_arguments = TrainingArguments(output_dir= output_dir,
         # fp16= True,
