@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import pandas as pd
 from datasets import load_dataset,Dataset,concatenate_datasets
+import jsonlines
 
 def seed_everything(seed: int = 42):
     random.seed(seed)
@@ -115,7 +116,7 @@ def prepare_translation_dataset(raw_dataset_path,term_dict_path):
         for line in f:
             term_dict_data.append(line)
     
-    valid_data=filter_valid_data(data)[0]
+    valid_data=filter_valid_data(term_dict_data)[0]
     df2=pd.DataFrame(valid_data)
     merged_df=merge_and_resort(df1,df2)
 
