@@ -11,7 +11,7 @@ import bitsandbytes as bnb
 import os, platform, warnings,sys
 from datasets import load_dataset,Dataset,concatenate_datasets
 import torch
-from utils import make_translation_prompt,add_src_tgt_tag
+from utils import *
 
 
 def load_tokenizer(base_model_path,additional_special_tokens:list=None):
