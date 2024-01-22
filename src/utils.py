@@ -107,6 +107,7 @@ def filter_valid_data(data):
 
 
 def prepare_translation_dataset(raw_dataset_path,term_dict_path):
+    print("Preparing Dataset")
     dataset=Dataset.load_from_disk(raw_dataset_path)
     dataset=add_src_tgt_tag(dataset).shuffle()
     df1=pd.DataFrame(dataset)
@@ -119,8 +120,9 @@ def prepare_translation_dataset(raw_dataset_path,term_dict_path):
     valid_data=filter_valid_data(term_dict_data)[0]
     df2=pd.DataFrame(valid_data)
     merged_df=merge_and_resort(df1,df2)
-
+    merged_df=merged_df.drop_duplicates(subset=["id"])
     dataset=Dataset.from_pandas(merged_df)
+    print("Dataset prepared")
     return dataset
     
     
