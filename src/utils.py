@@ -5,6 +5,8 @@ import torch
 import pandas as pd
 from datasets import load_dataset,Dataset,concatenate_datasets
 import jsonlines
+import ipdb
+import json
 
 def seed_everything(seed: int = 42):
     random.seed(seed)
@@ -44,6 +46,7 @@ def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None):
   else:
     template = f"""### Instruction:
 아래의 용어사전을 참조하여, {lang_dict[src]}를 {lang_dict[tgt]}로 번역하시오.
+용어사전내의 단어는 번역하지 않고, 설정된 형태를 그대로 유지합니다.
 
 용어사전 : {data["term_dict"]}
 ### Input:
@@ -101,8 +104,6 @@ def filter_valid_data(data):
                             "term_dict":word_dict})
         except:
             errors.append(idx)
-
-
     return valid_list,errors
 
 
@@ -116,7 +117,7 @@ def prepare_translation_dataset(raw_dataset_path,term_dict_path):
     with jsonlines.open(term_dict_path) as f:
         for line in f:
             term_dict_data.append(line)
-    
+
     valid_data=filter_valid_data(term_dict_data)[0]
     df2=pd.DataFrame(valid_data)
     merged_df=merge_and_resort(df1,df2)
