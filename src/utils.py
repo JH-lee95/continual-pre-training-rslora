@@ -46,7 +46,6 @@ def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None):
   else:
     template = f"""### Instruction:
 아래의 용어사전을 참조하여, {lang_dict[src]}를 {lang_dict[tgt]}로 번역하시오.
-용어사전내의 단어는 번역하지 않고, 설정된 형태를 그대로 유지합니다.
 
 용어사전 : {data["term_dict"]}
 ### Input:
@@ -119,7 +118,7 @@ def prepare_translation_dataset(raw_dataset_path,term_dict_path):
             term_dict_data.append(line)
 
     valid_data=filter_valid_data(term_dict_data)[0]
-    df2=pd.DataFrame(valid_data)
+    df2=pd.DataFrame(valid_data).sample(frac=1).iloc[:int(len(df1)*0.33)] # dataset의 1/3만 사용 
     merged_df=merge_and_resort(df1,df2)
     merged_df=merged_df.drop_duplicates(subset=["id"])
     dataset=Dataset.from_pandas(merged_df)
