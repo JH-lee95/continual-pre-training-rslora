@@ -6,7 +6,7 @@ from transformers import (
     AdamW,
   )
 import bitsandbytes as bnb
-import os,, warnings,sys
+import os, warnings,sys
 from datasets import load_dataset,Dataset,concatenate_datasets
 import torch
 from utils import *
@@ -74,15 +74,15 @@ def load_optimizer_scheduler(model,
                         ):
 
     if quantize:
-        optimizer = bnb.optim.Adam8bit(params=filter(lambda x:x.requires_grad,model.parameters()), 
-                                    lr=learning_rate, 
-                                    weight_decay=weight_decay,
-                                    )
-
-        # optimizer= bnb.optim.PagedAdam8bit(params=filter(lambda x:x.requires_grad,model.parameters()), 
+        # optimizer = bnb.optim.Adam8bit(params=filter(lambda x:x.requires_grad,model.parameters()), 
         #                             lr=learning_rate, 
         #                             weight_decay=weight_decay,
         #                             )
+
+        optimizer= bnb.optim.PagedAdam8bit(params=filter(lambda x:x.requires_grad,model.parameters()), 
+                                    lr=learning_rate, 
+                                    weight_decay=weight_decay,
+                                    )
 
         for module in model.modules():
             if isinstance(module, torch.nn.Embedding):
