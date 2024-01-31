@@ -27,11 +27,12 @@ def check_if_translation_orca(sample):
 def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None):
 
   lang_dict={"korean":"한국어","english":"영어","ko":"한국어","eng":"영어","en":"영어"}
+  src_tgt_dict={"en":"english","eng":"english","english":"english","ko":"korean","kor":"korean","korean":"korean"}
 
   if not src and not tgt:
     if "src" in data.keys() and "tgt" in data.keys():
-      src=data["src"]
-      tgt=data["tgt"]
+      src=src_tgt_dict[data["src"]]
+      tgt=src_tgt_dict[data["tgt"]]
     else:
       raise Exception("'src'와 'tgt'가 주어지거나, data의 key로 존재해야합니다.")
 

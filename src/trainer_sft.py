@@ -100,7 +100,9 @@ def main(args):
 
     ######################################### tokenizer & dataset #########################################
     tokenizer=load_tokenizer(args.base_model_dir)    
-    train_dataset,eval_dataset=load_and_prepare_dataset(tokenizer=tokenizer,seed=args.seed,max_len=args.max_len)
+    train_dataset,eval_dataset,metric=load_and_prepare_dataset(tokenizer=tokenizer,seed=args.seed,max_len=args.max_len)
+    # train_dataset,eval_dataset=load_and_prepare_dataset(tokenizer=tokenizer,seed=args.seed,max_len=args.max_len)
+
 
     if local_rank=="0":
         print("-------example-------\n",train_dataset[0]["text"])
@@ -124,8 +126,8 @@ def main(args):
     #######################################################################################################
 
     ######################################### Trainer Setiings #########################################
-    eval_steps=int(total_update_steps/args.num_save_per_epoch)
-    # eval_steps=5
+    # eval_steps=int(total_update_steps/args.num_save_per_epoch)
+    eval_steps=2
 
     training_arguments = TrainingArguments(output_dir= output_dir,
         # fp16= True,
@@ -168,6 +170,7 @@ def main(args):
     peft_config=peft_config if not args.full_ft else None,
     max_seq_length= args.max_len,
     dataset_text_field="text",
+    compute_metrics=metric.compute_metrics
     # packing= True,
     )
     ######################################################################################################
@@ -181,7 +184,7 @@ def main(args):
         print(args_table)
 
     if args.train:
-      if args.ckpt_dir is not None:
+      if args.ckpt_dir is not None:s
         trainer.train(args.ckpt_dir)
       else:
         trainer.train() 

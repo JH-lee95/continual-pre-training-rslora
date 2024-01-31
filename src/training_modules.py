@@ -10,6 +10,8 @@ import os, warnings,sys
 from datasets import load_dataset,Dataset,concatenate_datasets
 import torch
 from utils import *
+import ipdb
+import torch.nn as nn
 
 
 def load_tokenizer(base_model_path,additional_special_tokens:list=None):
@@ -50,18 +52,31 @@ def load_model(base_model_path,
     return model
 
 
-def load_and_prepare_dataset(tokenizer,seed,max_len):
+def load_and_prepare_dataset(tokenizer,seed,max_len,metric=True):
+
+    response_template_with_context = "\n### Output:\n"
  
+    columns=["korean","english","src","tgt"]
   
     # dataset=prepare_translation_dataset("/root/azurestorage/data/번역데이터셋/aligned_dataset/final_dataset/","/root/azurestorage/data/번역데이터셋/aligned_dataset/term_dict_result_dedup.jsonl")    # dataset=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/final_dataset_with_term_dict")
     dataset=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_training")
     dataset=dataset.map(make_translation_prompt,fn_kwargs={"tokenizer":tokenizer})
     dataset=dataset.filter(lambda x:len(tokenizer.tokenize(x["text"]))<max_len) # to guarantee perfect completion up to eos token,
 
-    # eval_dataset=load_dataset("jhflow/flores_ko_eng",token="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",split="dev")
-    eval_dataset=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_valid")
+    eval_dataset_1=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_valid_wo_term_dict").select(range(10))
+    eval_dataset_2=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_valid_w_term_dict").select(range(10))
+    eval_dataset_3=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/flores_ko_eng/dev").select(range(10))
+
+    eval_dataset=concatenate_datasets([eval_dataset_1.select_columns(columns),eval_dataset_2.select_columns(columns),eval_dataset_3.select_columns(columns)])
     eval_dataset=eval_dataset.map(make_translation_prompt,fn_kwargs={"tokenizer":tokenizer})
-    return dataset,eval_dataset
+
+    if metric:
+        metric=MetricCollection(len(eval_dataset_1),len(eval_dataset_2),tokenizer=tokenizer,response_template=response_template_with_context)
+
+        return dataset,eval_dataset,metric
+
+    else:
+        return dataset,eval_dataset
 
 
 def load_optimizer_scheduler(model,
@@ -106,17 +121,17 @@ def load_optimizer_scheduler(model,
 
 
 class MetricCollection:
-    def __init__(self, dataset_1_size,dataset_2_size,ignore_index=-100):
+    def __init__(self, dataset_1_size,dataset_2_size,tokenizer=None,response_template=None,ignore_index=-100):
         self.ignore_index=ignore_index
-        self.dataset_1_size = dataset_1_size
-        self.dataset_2_size=  dataset_2_size
-
-    def mymetric(labels, predicted_scores):
-        ...
-        return result
+        self.dataset_1_size = dataset_1_size # w/o term_dict
+        self.dataset_2_size=  dataset_2_size # w term_dict
+        self.epsilon: float = 0.1
+        self.tokenizer=tokenizer
+        self.response_template_ids= self.tokenizer.encode(response_template, add_special_tokens=False)[2:]
+        
 
     def compute_loss(self, model_output, labels, shift_labels=True):
-        logits = model_output["logits"] if isinstance(model_output, dict) else model_output[0]
+        logits = model_output["logits"] if isinstance(model_output, dict) else model_output
         if shift_labels:
             logits = logits[..., :-1, :].contiguous()
             labels = labels[..., 1:].contiguous()
@@ -142,19 +157,25 @@ class MetricCollection:
         smoothed_loss = smoothed_loss.sum() / (num_active_elements * log_probs.shape[-1])
         return (1 - self.epsilon) * nll_loss + self.epsilon * smoothed_loss
 
-    def compute_metrics(self, p: EvalPrediction) -> Dict:
+    def compute_metrics(self, p):
+
         metrics = {}
 
+        # response_template_ids=torch.tensor(self.response_template_ids).expand(p.label_ids.shape[0],-1)
+        # label_mask=
+
         labels_1 = p.label_ids[:self.dataset_1_size]
-        labels_2 = p.label_ids[self.dataset_1_size:self.dataset_2_size]
-        labels_3 = p.label_ids[self.dataset_2_size]
+        labels_2 = p.label_ids[self.dataset_1_size:self.dataset_1_size+self.dataset_2_size]
+        labels_3 = p.label_ids[self.dataset_1_size+self.dataset_2_size:]
 
         predictions_1 = p.predictions[:self.dataset_1_size, :]
-        predictions_2 = p.predictions[self.dataset_1_size:self.dataset_2_size, :]
-        predictions_3 = p.predictions[self.dataset_2_size:, :]
+        predictions_2 = p.predictions[self.dataset_1_size:self.dataset_1_size+self.dataset_2_size, :]
+        predictions_3 = p.predictions[self.dataset_1_size+self.dataset_2_size:, :]
 
-        metrics['eval_loss_w/o_term_dict'] = compute_loss(predictions_1,labels_1)
-        metrics['eval_loss_w_term_dict'] = compute_loss( predictions_2,labels_2)
-        metrics['eval_loss_flores'] = compute_loss(predictions_3,labels_3)
+        ipdb.set_trace()
+
+        metrics['eval_loss_w/o_term_dict'] = self.compute_loss(torch.tensor(predictions_1),torch.tensor(labels_1))
+        metrics['eval_loss_w_term_dict'] = self.compute_loss(torch.tensor(predictions_2),torch.tensor(labels_2))
+        metrics['eval_loss_flores'] = self.compute_loss(torch.tensor(predictions_3),torch.tensor(labels_3))
 
         return metrics
