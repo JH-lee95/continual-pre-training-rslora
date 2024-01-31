@@ -74,15 +74,15 @@ def load_optimizer_scheduler(model,
                         ):
 
     if quantize:
-        # optimizer = bnb.optim.Adam8bit(params=filter(lambda x:x.requires_grad,model.parameters()), 
-        #                             lr=learning_rate, 
-        #                             weight_decay=weight_decay,
-        #                             )
-
-        optimizer= bnb.optim.PagedAdam8bit(params=filter(lambda x:x.requires_grad,model.parameters()), 
+        optimizer = bnb.optim.Adam8bit(params=filter(lambda x:x.requires_grad,model.parameters()), 
                                     lr=learning_rate, 
                                     weight_decay=weight_decay,
                                     )
+
+        # optimizer= bnb.optim.PagedAdam8bit(params=filter(lambda x:x.requires_grad,model.parameters()), 
+        #                             lr=learning_rate, 
+        #                             weight_decay=weight_decay,
+        #                             )
 
         for module in model.modules():
             if isinstance(module, torch.nn.Embedding):
@@ -103,3 +103,58 @@ def load_optimizer_scheduler(model,
 
     return optimizer,scheduler
 
+
+
+class MetricCollection:
+    def __init__(self, dataset_1_size,dataset_2_size,ignore_index=-100):
+        self.ignore_index=ignore_index
+        self.dataset_1_size = dataset_1_size
+        self.dataset_2_size=  dataset_2_size
+
+    def mymetric(labels, predicted_scores):
+        ...
+        return result
+
+    def compute_loss(self, model_output, labels, shift_labels=True):
+        logits = model_output["logits"] if isinstance(model_output, dict) else model_output[0]
+        if shift_labels:
+            logits = logits[..., :-1, :].contiguous()
+            labels = labels[..., 1:].contiguous()
+
+        log_probs = -nn.functional.log_softmax(logits, dim=-1)
+        if labels.dim() == log_probs.dim() - 1:
+            labels = labels.unsqueeze(-1)
+
+        padding_mask = labels.eq(self.ignore_index)
+        # In case the ignore_index is -100, the gather will fail, so we replace labels by 0. The padding_mask
+        # will ignore them in any case.
+        labels = torch.clamp(labels, min=0)
+        nll_loss = log_probs.gather(dim=-1, index=labels)
+        # works for fp16 input tensor too, by internally upcasting it to fp32
+        smoothed_loss = log_probs.sum(dim=-1, keepdim=True, dtype=torch.float32)
+
+        nll_loss.masked_fill_(padding_mask, 0.0)
+        smoothed_loss.masked_fill_(padding_mask, 0.0)
+
+        # Take the mean over the label dimensions, then divide by the number of active elements (i.e. not-padded):
+        num_active_elements = padding_mask.numel() - padding_mask.long().sum()
+        nll_loss = nll_loss.sum() / num_active_elements
+        smoothed_loss = smoothed_loss.sum() / (num_active_elements * log_probs.shape[-1])
+        return (1 - self.epsilon) * nll_loss + self.epsilon * smoothed_loss
+
+    def compute_metrics(self, p: EvalPrediction) -> Dict:
+        metrics = {}
+
+        labels_1 = p.label_ids[:self.dataset_1_size]
+        labels_2 = p.label_ids[self.dataset_1_size:self.dataset_2_size]
+        labels_3 = p.label_ids[self.dataset_2_size]
+
+        predictions_1 = p.predictions[:self.dataset_1_size, :]
+        predictions_2 = p.predictions[self.dataset_1_size:self.dataset_2_size, :]
+        predictions_3 = p.predictions[self.dataset_2_size:, :]
+
+        metrics['eval_loss_w/o_term_dict'] = compute_loss(predictions_1,labels_1)
+        metrics['eval_loss_w_term_dict'] = compute_loss( predictions_2,labels_2)
+        metrics['eval_loss_flores'] = compute_loss(predictions_3,labels_3)
+
+        return metrics
