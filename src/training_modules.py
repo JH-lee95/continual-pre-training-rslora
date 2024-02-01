@@ -59,9 +59,9 @@ def load_and_prepare_dataset(tokenizer,seed,max_len,metric=True):
     columns=["korean","english","src","tgt"]
   
     # dataset=prepare_translation_dataset("/root/azurestorage/data/번역데이터셋/aligned_dataset/final_dataset/","/root/azurestorage/data/번역데이터셋/aligned_dataset/term_dict_result_dedup.jsonl")    # dataset=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/final_dataset_with_term_dict")
-    dataset=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_training")
-    dataset=dataset.map(make_translation_prompt,fn_kwargs={"tokenizer":tokenizer})
-    dataset=dataset.filter(lambda x:len(tokenizer.tokenize(x["text"]))<max_len) # to guarantee perfect completion up to eos token,
+    dataset=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_training_20k")
+    # dataset=dataset.map(make_translation_prompt,fn_kwargs={"tokenizer":tokenizer})
+    # dataset=dataset.filter(lambda x:len(tokenizer.tokenize(x["text"]))<max_len) # to guarantee perfect completion up to eos token,
 
     eval_dataset_1=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_valid_wo_term_dict").select(range(10))
     eval_dataset_2=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_valid_w_term_dict").select(range(10))
@@ -127,7 +127,7 @@ class MetricCollection:
         self.dataset_2_size=  dataset_2_size # w term_dict
         self.epsilon: float = 0.1
         self.tokenizer=tokenizer
-        self.response_template_ids= self.tokenizer.encode(response_template, add_special_tokens=False)[2:]
+        # self.response_token_ids= self.tokenizer.encode(response_template, add_special_tokens=False)[2:]
         
 
     def compute_loss(self, model_output, labels, shift_labels=True):
@@ -157,12 +157,67 @@ class MetricCollection:
         smoothed_loss = smoothed_loss.sum() / (num_active_elements * log_probs.shape[-1])
         return (1 - self.epsilon) * nll_loss + self.epsilon * smoothed_loss
 
+
+    # def compute_loss(self, model_output, labels, shift_labels=True):
+    #     logits = model_output["logits"] if isinstance(model_output, dict) else model_output
+    #     if shift_labels:
+    #         logits = logits[..., :-1, :]  # Contiguous not needed for NumPy
+    #         labels = labels[..., 1:]
+
+    #     log_probs = -np.log(np.exp(logits) / np.exp(logits).sum(axis=-1, keepdims=True))  # NumPy log_softmax
+    #     if labels.ndim == log_probs.ndim - 1:
+    #         labels = labels[..., np.newaxis]  # NumPy equivalent of unsqueeze
+
+    #     padding_mask = labels == self.ignore_index
+    #     labels = np.clip(labels, a_min=0, a_max=None)  # NumPy clamp
+    #     nll_loss = log_probs[np.arange(len(log_probs)), labels]  # NumPy gather
+    #     smoothed_loss = np.log(log_probs.sum(axis=-1, keepdims=True) + 1e-8)  # Add smoothing for numerical stability
+
+    #     nll_loss[padding_mask] = 0.0
+    #     smoothed_loss[padding_mask] = 0.0
+
+    #     num_active_elements = np.prod(padding_mask.shape) - np.sum(padding_mask)
+    #     nll_loss = np.mean(nll_loss)  # Direct mean calculation
+    #     smoothed_loss = np.mean(smoothed_loss)  # Direct mean calculation
+    #     return (1 - self.epsilon) * nll_loss + self.epsilon * smoothed_loss
+
+
+    # def mask_labels(self,labels):
+    #     # mask labels except generation candidates
+
+    #     for i in range(len(labels)):
+    #         response_token_ids_start_idx = None
+
+    #         for idx in np.where(labels[i] == self.response_token_ids[0])[0]:
+    #             # `response_token_ids` is `'### Response:\n'`, here we are just making sure that the token IDs match
+    #             if (
+    #                 self.response_token_ids
+    #                 == labels[i][idx : idx + len(self.response_token_ids)].tolist()
+    #             ):
+    #                 response_token_ids_start_idx = idx
+
+    #         if response_token_ids_start_idx is None:
+    #             warnings.warn(
+    #                 f"Could not find response key `{self.response_template}` in the "
+    #                 f'following instance: {self.tokenizer.decode(batch["input_ids"][i])} '
+    #                 f"This instance will be ignored in loss calculation. "
+    #                 f"Note, if this happens often, consider increasing the `max_seq_length`."
+    #             )
+    #             labels[i, :] = self.ignore_index
+    #         else:
+    #             response_token_ids_end_idx = response_token_ids_start_idx + len(self.response_token_ids)
+
+    #             # Make pytorch loss function ignore all tokens up through the end of the response key
+    #             labels[i, :response_token_ids_end_idx] = self.ignore_index
+
+    #     return labels
+
     def compute_metrics(self, p):
 
         metrics = {}
 
         # response_template_ids=torch.tensor(self.response_template_ids).expand(p.label_ids.shape[0],-1)
-        # label_mask=
+        # p.label_ids=self.mask_labels(p.label_ids)
 
         labels_1 = p.label_ids[:self.dataset_1_size]
         labels_2 = p.label_ids[self.dataset_1_size:self.dataset_1_size+self.dataset_2_size]
@@ -172,10 +227,10 @@ class MetricCollection:
         predictions_2 = p.predictions[self.dataset_1_size:self.dataset_1_size+self.dataset_2_size, :]
         predictions_3 = p.predictions[self.dataset_1_size+self.dataset_2_size:, :]
 
-        ipdb.set_trace()
+        metrics['eval_loss_w/o_term_dict'] = self.compute_loss(torch.tensor(predictions_1),torch.tensor(labels_1)).item()
+        metrics['eval_loss_w_term_dict'] = self.compute_loss(torch.tensor(predictions_2),torch.tensor(labels_2)).item()
+        metrics['eval_loss_flores'] = self.compute_loss(torch.tensor(predictions_3),torch.tensor(labels_3)).item()
 
-        metrics['eval_loss_w/o_term_dict'] = self.compute_loss(torch.tensor(predictions_1),torch.tensor(labels_1))
-        metrics['eval_loss_w_term_dict'] = self.compute_loss(torch.tensor(predictions_2),torch.tensor(labels_2))
-        metrics['eval_loss_flores'] = self.compute_loss(torch.tensor(predictions_3),torch.tensor(labels_3))
+        # ipdb.set_trace()
 
         return metrics

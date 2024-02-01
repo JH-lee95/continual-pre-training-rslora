@@ -126,8 +126,8 @@ def main(args):
     #######################################################################################################
 
     ######################################### Trainer Setiings #########################################
-    # eval_steps=int(total_update_steps/args.num_save_per_epoch)
-    eval_steps=2
+    eval_steps=int(total_update_steps/args.num_save_per_epoch)
+    # eval_steps=2
 
     training_arguments = TrainingArguments(output_dir= output_dir,
         # fp16= True,
@@ -138,7 +138,7 @@ def main(args):
         # torch_compile=True,
                         )
     training_arguments=training_arguments.set_dataloader(train_batch_size=args.batch_size,
-                                                             eval_batch_size=args.batch_size*2,
+                                                            #  eval_batch_size=args.batch_size,
                                                              pin_memory=True,
                                                              num_workers=4,
                                                              sampler_seed=args.seed)
@@ -151,7 +151,7 @@ def main(args):
         seed=args.seed,
         )
     training_arguments=training_arguments.set_logging(strategy="steps",steps=100,report_to=["mlflow"])
-    training_arguments=training_arguments.set_evaluate(strategy="steps", batch_size=args.batch_size*2,steps=eval_steps,delay=0)
+    # training_arguments=training_arguments.set_evaluate(strategy="steps", batch_size=args.batch_size,steps=eval_steps,delay=0)
     training_arguments=training_arguments.set_save(strategy="steps",steps=eval_steps,total_limit=20,)
     training_arguments.load_best_model_at_end=True
 
@@ -165,8 +165,8 @@ def main(args):
     tokenizer=tokenizer,
     optimizers=(optimizer,scheduler),
     train_dataset=train_dataset,
-    eval_dataset=eval_dataset,
-    # data_collator=collator,
+    # eval_dataset=eval_dataset,
+    data_collator=collator,
     peft_config=peft_config if not args.full_ft else None,
     max_seq_length= args.max_len,
     dataset_text_field="text",
@@ -184,7 +184,7 @@ def main(args):
         print(args_table)
 
     if args.train:
-      if args.ckpt_dir is not None:s
+      if args.ckpt_dir is not None:
         trainer.train(args.ckpt_dir)
       else:
         trainer.train() 
