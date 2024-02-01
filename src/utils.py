@@ -42,8 +42,7 @@ def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None):
 ### Input:
 {data[src]}
 ### Output:
-{data[tgt]}{tokenizer.eos_token}
-"""
+{data[tgt]}{tokenizer.eos_token}"""
   else:
     template = f"""### Instruction:
 아래의 용어사전을 참조하여, {lang_dict[src]}를 {lang_dict[tgt]}로 번역하시오.
@@ -52,8 +51,7 @@ def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None):
 ### Input:
 {data[src]}
 ### Output:
-{data[tgt]}{tokenizer.eos_token}
-"""
+{data[tgt]}{tokenizer.eos_token}"""
 
   return {"text":template}
 
