@@ -76,7 +76,7 @@ def main(args):
     ####################################################################################################
 
     ######################################### model #########################################
-    model=load_model(args.base_model_dir,gradient_checkpointing=args.gradient_checkpointing,quantization_config=None)
+    model=load_model(args.base_model_dir,gradient_checkpointing=args.gradient_checkpointing,quantization_config=None,flash_attn=False)
     model.config.use_cache = False # use_cache is only for infernce
 
     if model.config.max_position_embeddings<args.max_len:
@@ -87,7 +87,7 @@ def main(args):
     if not args.full_ft:
       ## peft (lora)
       peft_config = LoraConfig(
-              r=64,
+              r=16,
               lora_alpha=16,
               lora_dropout=args.dropout_rate,
               bias="none",
@@ -106,8 +106,10 @@ def main(args):
 
 
     if local_rank=="0":
-        print("-------example-------\n",train_dataset[0]["text"])
-    # train_dataset=load_and_prepare_dataset(tokenizer)
+        print("-------example-------",)
+        print("prompt : ", train_dataset[0]["prompt"])
+        print("chosen : ", train_dataset[0]["chosen"])
+        print("reject : ",train_dataset[0]["rejected"])
     
     if len(tokenizer)!=int(model.config.vocab_size):
         model.resize_token_embeddings(len(tokenizer))
@@ -166,7 +168,7 @@ def main(args):
     train_dataset=train_dataset,
     # eval_dataset=eval_dataset,
     peft_config=peft_config if not args.full_ft else None,
-    max_seq_length= args.max_len,
+    max_length= args.max_len,
     )
     ######################################################################################################
     print("detected device : ",training_arguments.device)

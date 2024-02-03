@@ -36,6 +36,7 @@ def load_tokenizer(base_model_path,additional_special_tokens:list=None):
 def load_model(base_model_path, 
             gradient_checkpointing=False,
             quantization_config=None,
+            flash_attn=True,
             cache_dir="/root/azurestorage/huggingface_cache/models"):
 
     model = AutoModelForCausalLM.from_pretrained(
@@ -44,7 +45,7 @@ def load_model(base_model_path,
         use_cache=False if gradient_checkpointing else True, # use_cache is incompatible with gradient_checkpointing
         torch_dtype="auto",
         # device_map="cuda",
-        attn_implementation="flash_attention_2",
+        attn_implementation="flash_attention_2" if flash_attn else None,
         cache_dir="/root/azurestorage/huggingface_cache/models",
     )
     if gradient_checkpointing:
