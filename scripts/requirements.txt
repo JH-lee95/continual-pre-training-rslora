@@ -1,0 +1,20 @@
+pip install torch
+pip install transformers
+pip install datasets
+pip install bitsandbytes
+pip install trl
+pip install pandas
+pip install peft
+pip install accelerate
+pip install scipy
+pip install scikit-learn
+pip install sentencepiece
+pip install openpyxl
+pip install ipdb
+pip install ninja
+pip install mlflow
+pip install packaging
+pip install prettytable
+pip install nltk
+pip install flash-attn --no-build-isolation
+pip install deepspeed
