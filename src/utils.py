@@ -24,7 +24,7 @@ def check_if_translation_orca(sample):
             return True
     return False
 
-def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None):
+def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None,no_output=False):
 
   lang_dict={"korean":"한국어","english":"영어","ko":"한국어","eng":"영어","en":"영어"}
   src_tgt_dict={"en":"english","eng":"english","english":"english","ko":"korean","kor":"korean","korean":"korean"}
@@ -52,6 +52,9 @@ def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None):
 {data[src]}
 ### Output:
 {data[tgt]}{tokenizer.eos_token}"""
+
+  if no_output:
+    template=template[:template.rfind("### Output:")+len("### Output:")]
 
   return {"text":template}
 
