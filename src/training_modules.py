@@ -60,8 +60,8 @@ def load_and_prepare_dataset(tokenizer,seed,max_len,metric=True):
     columns=["korean","english","src","tgt"]
   
     # dataset=prepare_translation_dataset("/root/azurestorage/data/번역데이터셋/aligned_dataset/final_dataset/","/root/azurestorage/data/번역데이터셋/aligned_dataset/term_dict_result_dedup.jsonl")    # dataset=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/final_dataset_with_term_dict")
-    dataset=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_training_20k").filter(lambda x:x["category"]!="shatgpt")
-    # dataset=dataset.map(make_translation_prompt,fn_kwargs={"tokenizer":tokenizer})
+    dataset=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_training_20k").filter(lambda x:x["category"]!="shatgpt").remove_columns("text")
+    dataset=dataset.map(make_translation_prompt,fn_kwargs={"tokenizer":tokenizer})
     # dataset=dataset.filter(lambda x:len(tokenizer.tokenize(x["text"]))<max_len) # to guarantee perfect completion up to eos token,
 
     eval_dataset_1=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_valid_wo_term_dict").select(range(10))
