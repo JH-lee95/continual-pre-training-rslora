@@ -60,24 +60,26 @@ def load_and_prepare_dataset(tokenizer,seed,max_len,metric=True):
     columns=["korean","english","src","tgt"]
   
     # dataset=prepare_translation_dataset("/root/azurestorage/data/번역데이터셋/aligned_dataset/final_dataset/","/root/azurestorage/data/번역데이터셋/aligned_dataset/term_dict_result_dedup.jsonl")    # dataset=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/final_dataset_with_term_dict")
-    dataset=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_training_20k")
+    dataset=Dataset.load_from_disk("/nvme_temp/prepared_for_training/translation_dataset_training_20k").filter(lambda x:x["category"]!="shatgpt")
     # dataset=dataset.map(make_translation_prompt,fn_kwargs={"tokenizer":tokenizer})
     # dataset=dataset.filter(lambda x:len(tokenizer.tokenize(x["text"]))<max_len) # to guarantee perfect completion up to eos token,
 
-    eval_dataset_1=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_valid_wo_term_dict").select(range(10))
-    eval_dataset_2=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_valid_w_term_dict").select(range(10))
-    eval_dataset_3=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/flores_ko_eng/dev").select(range(10))
+    # eval_dataset_1=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_valid_wo_term_dict").select(range(10))
+    # eval_dataset_2=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_valid_w_term_dict").select(range(10))
+    # eval_dataset_3=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/flores_ko_eng/dev").select(range(10))
 
-    eval_dataset=concatenate_datasets([eval_dataset_1.select_columns(columns),eval_dataset_2.select_columns(columns),eval_dataset_3.select_columns(columns)])
-    eval_dataset=eval_dataset.map(make_translation_prompt,fn_kwargs={"tokenizer":tokenizer})
+    # eval_dataset=concatenate_datasets([eval_dataset_1.select_columns(columns),eval_dataset_2.select_columns(columns),eval_dataset_3.select_columns(columns)])
+    # eval_dataset=eval_dataset.map(make_translation_prompt,fn_kwargs={"tokenizer":tokenizer})
 
-    if metric:
-        metric=MetricCollection(len(eval_dataset_1),len(eval_dataset_2),tokenizer=tokenizer,response_template=response_template_with_context)
+    # if metric:
+    #     metric=MetricCollection(len(eval_dataset_1),len(eval_dataset_2),tokenizer=tokenizer,response_template=response_template_with_context)
 
-        return dataset,eval_dataset,metric
+    #     return dataset,eval_dataset,metric
 
-    else:
-        return dataset,eval_dataset
+    # else:
+        # return dataset,eval_dataset
+
+    return dataset
 
 
 def load_and_prepare_dataset_cpo(tokenizer,seed,max_len,metric=True):

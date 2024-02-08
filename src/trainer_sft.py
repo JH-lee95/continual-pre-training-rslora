@@ -100,7 +100,8 @@ def main(args):
 
     ######################################### tokenizer & dataset #########################################
     tokenizer=load_tokenizer(args.base_model_dir)    
-    train_dataset,eval_dataset,metric=load_and_prepare_dataset(tokenizer=tokenizer,seed=args.seed,max_len=args.max_len)
+    # train_dataset,eval_dataset,metric=load_and_prepare_dataset(tokenizer=tokenizer,seed=args.seed,max_len=args.max_len)
+    train_dataset=load_and_prepare_dataset(tokenizer=tokenizer,seed=args.seed,max_len=args.max_len)
     # train_dataset,eval_dataset=load_and_prepare_dataset(tokenizer=tokenizer,seed=args.seed,max_len=args.max_len)
 
 
@@ -170,7 +171,7 @@ def main(args):
     peft_config=peft_config if not args.full_ft else None,
     max_seq_length= args.max_len,
     dataset_text_field="text",
-    compute_metrics=metric.compute_metrics
+    # compute_metrics=metric.compute_metrics
     # packing= True,
     )
     ######################################################################################################

@@ -2,5 +2,10 @@
 
 # python src/trainer_sft.py --base_model_dir yanolja/KoSOLAR-10.7B-v0.2 --batch_size 2 --epoch_size 1 --expr_desc finetuning --expr_name tmt-yanolja-kosolar --gradient_accumulation_steps 16 --max_len 4096 --learning_rate 5e-5 --gradient_checkpointing True
 
-# torchrun --nproc-per-node 4 src/trainer_sft.py --base_model_dir yanolja/KoSOLAR-10.7B-v0.2 --batch_size 1 --epoch_size 1 --expr_desc finetuning --expr_name tmt-yanolja-kosolar --gradient_accumulation_steps 32 --max_len 4096 --learning_rate 1e-4
+# torchrun --nproc-per-node 4 src/trainer_sft.py --base_model_dir yanolja/KoSOLAR-10.7B-v0.2 --batch_size 1 --epoch_size 1 --expr_desc finetuning --expr_name tmt-yanolja-kosolar --gradient_accumulation_steps 32 --max_len 4096 --learning_rate 5e-5
+
+
+
+# torchrun --nproc-per-node 4 src/trainer_sft.py --base_model_dir yanolja/KoSOLAR-10.7B-v0.2 --batch_size 1 --epoch_size 1 --expr_desc finetuning --expr_name tmt-yanolja-kosolar-wosg --gradient_accumulation_steps 8 --max_len 4096 --learning_rate 5e-5
+
 
