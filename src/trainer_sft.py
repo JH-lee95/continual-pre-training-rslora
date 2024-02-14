@@ -87,7 +87,7 @@ def main(args):
       ## peft (lora)
       peft_config = LoraConfig(
               r=64,
-              lora_alpha=16,
+              lora_alpha=32,
               lora_dropout=args.dropout_rate,
               bias="none",
               task_type="CAUSAL_LM",

@@ -61,7 +61,7 @@ def load_and_prepare_dataset(tokenizer,seed,max_len,metric=True):
   
     # dataset=prepare_translation_dataset("/root/azurestorage/data/번역데이터셋/aligned_dataset/final_dataset/","/root/azurestorage/data/번역데이터셋/aligned_dataset/term_dict_result_dedup.jsonl")    # dataset=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/final_dataset_with_term_dict")
 
-    dataset=Dataset.load_from_disk("/nvme_temp/prepared_for_training/translation_dataset_training_20k").filter(lambda x:x["category"]!="shatgpt").remove_columns("text")
+    dataset=Dataset.load_from_disk("/nvme_temp/prepared_for_training/translation_dataset_training_15k_withsg")
     dataset=dataset.map(make_translation_prompt,fn_kwargs={"tokenizer":tokenizer})
 
     # dataset=dataset.filter(lambda x:len(tokenizer.tokenize(x["text"]))<max_len) # to guarantee perfect completion up to eos token,

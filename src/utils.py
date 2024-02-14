@@ -29,7 +29,7 @@ def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None,no_output=
     else:
       raise Exception("'src'와 'tgt'가 주어지거나, data의 key로 존재해야합니다.")
 
-  if "term_dict" not in data.keys() or not len(data["term_dict"]):
+  if "term_dict" not in data.keys() or not len(data["term_dict"]) or data["term_dict"] is None:
     template = f"""### Instruction:
 {lang_dict[src]}를 {lang_dict[tgt]}로 번역하시오.
 ### Input:
