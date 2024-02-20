@@ -86,7 +86,7 @@ def main(args):
     if not args.full_ft:
       ## peft (lora)
       peft_config = LoraConfig(
-              r=16,
+              r=32,
               lora_alpha=16,
               lora_dropout=args.dropout_rate,
               bias="none",

@@ -61,7 +61,7 @@ def load_and_prepare_dataset(tokenizer,seed,max_len,metric=True):
   
     # dataset=prepare_translation_dataset("/root/azurestorage/data/번역데이터셋/aligned_dataset/final_dataset/","/root/azurestorage/data/번역데이터셋/aligned_dataset/term_dict_result_dedup.jsonl")    # dataset=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/final_dataset_with_term_dict")
 
-    dataset=Dataset.load_from_disk("/nvme_temp/prepared_for_training/translation_dataset_training_15k_withsg")
+    dataset=Dataset.load_from_disk("/nvme_temp/prepared_for_training/training_dataset_27k")
     dataset=dataset.map(make_translation_prompt,fn_kwargs={"tokenizer":tokenizer})
 
     # dataset=dataset.filter(lambda x:len(tokenizer.tokenize(x["text"]))<max_len) # to guarantee perfect completion up to eos token,
@@ -123,15 +123,15 @@ def load_optimizer_scheduler(model,
                         ):
 
     if quantize:
-        optimizer = bnb.optim.Adam8bit(params=filter(lambda x:x.requires_grad,model.parameters()), 
-                                    lr=learning_rate, 
-                                    weight_decay=weight_decay,
-                                    )
-
-        # optimizer= bnb.optim.PagedAdam8bit(params=filter(lambda x:x.requires_grad,model.parameters()), 
+        # optimizer = bnb.optim.Adam8bit(params=filter(lambda x:x.requires_grad,model.parameters()), 
         #                             lr=learning_rate, 
         #                             weight_decay=weight_decay,
         #                             )
+
+        optimizer= bnb.optim.PagedAdam8bit(params=filter(lambda x:x.requires_grad,model.parameters()), 
+                                    lr=learning_rate, 
+                                    weight_decay=weight_decay,
+                                    )
 
         for module in model.modules():
             if isinstance(module, torch.nn.Embedding):
