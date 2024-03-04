@@ -8,6 +8,7 @@ import argparse
 import sys,os
 import ipdb
 import json
+import pandas as pd
 
 
 def parse_args():
@@ -50,7 +51,7 @@ def prepare_test_dataset(dataset):
 
 def get_metrics(src,ref,hyp,comet_model):
     sacrebleu = datasets.load_metric('sacrebleu')
-    bleu_score=sacrebleu.compute(predictions=hyp, references=ref)['score']
+    bleu_score=sacrebleu.compute(predictions=hyp, references=[[r] for r in ref])['score']
 
     comet_input=[{"src": s,
                 "mt": r,
@@ -79,35 +80,35 @@ def gen_and_eval(tokenizer,comet_model,dataset):
             "comet_score_eng_to_ko":comet_score_eng_to_ko,}
 
 
-def main(args):
+# def main(args):
 
-    comet_model = load_from_checkpoint(download_model(args.comet_model_path))
-    tokenizer=AutoTokenizer.from_pretrained(args.model_path)
+#     comet_model = load_from_checkpoint(download_model(args.comet_model_dir))
+#     # tokenizer=AutoTokenizer.from_pretrained(args.model_path)
 
-    df=pd.read_excel("/root/azurestorage/data/번역데이터셋/raw_data/test_data_blood,sweat,tear.xlsx")
-    kor,eng,ge,gk,de,dk=df["Korean"].values,df["English"].values,df["g_e"].values,df["g_k"].values,df["d_e"].values,df["d_k"].values
+#     df=pd.read_excel("/root/azurestorage/data/번역데이터셋/raw_data/test_data_blood,sweat,tear.xlsx")
+#     kor,eng,ge,gk,de,dk=df["Korean"].values.tolist(),df["English"].values.tolist(),df["g_e"].values.tolist(),df["g_k"].values.tolist(),df["d_e"].values.tolist(),df["d_k"].values.tolist()
 
-    ge_bleu,ge_comet=get_metrics(kor,eng,ge,comet_model)
-    gk_bleu,gk_comet=get_metrics(eng,kor,gk,comet_model)
-    de_bleu,de_comet=get_metrics(kor,eng,de,comet_model)
-    dk_bleu,dk_comet=get_metrics(eng,kor,dk,comet_model)
+#     ge_bleu,ge_comet=get_metrics(kor,eng,ge,comet_model)
+#     gk_bleu,gk_comet=get_metrics(eng,kor,gk,comet_model)
+#     de_bleu,de_comet=get_metrics(kor,eng,de,comet_model)
+#     dk_bleu,dk_comet=get_metrics(eng,kor,dk,comet_model)
     
-    print("----ge_bleu----")
-    print(ge_bleu)
-    print("----ge_comet----")
-    print(ge_comet)
-    print("----gk_bleu----")
-    print(gk_bleu)
-    print("----gk_comet----")
-    print(gk_comet)
-    print("----de_bleu----")
-    print(de_bleu)
-    print("----de_comet----")
-    print(de_comet)
-    print("----dk_bleu----")
-    print(dk_bleu)
-    print("----dk_comet----")
-    print(dk_comet)
+#     print("----ge_bleu----")
+#     print(ge_bleu)
+#     print("----ge_comet----")
+#     print(ge_comet)
+#     print("----gk_bleu----")
+#     print(gk_bleu)
+#     print("----gk_comet----")
+#     print(gk_comet)
+#     print("----de_bleu----")
+#     print(de_bleu)
+#     print("----de_comet----")
+#     print(de_comet)
+#     print("----dk_bleu----")
+#     print(dk_bleu)
+#     print("----dk_comet----")
+#     print(dk_comet)
 
     # if not os.path.exists("../test_result/"):
     #     os.mkdir("../test_result/")
