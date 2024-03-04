@@ -153,7 +153,7 @@ def main(args):
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         seed=args.seed,
         )
-    training_arguments=training_arguments.set_logging(strategy="steps",steps=100,report_to=["mlflow"])
+    training_arguments=training_arguments.set_logging(strategy="steps",steps=50,report_to=["mlflow"])
     # training_arguments=training_arguments.set_evaluate(strategy="steps", batch_size=args.batch_size,steps=eval_steps,delay=0)
     training_arguments=training_arguments.set_save(strategy="steps",steps=eval_steps,total_limit=20,)
     training_arguments.load_best_model_at_end=True
