@@ -13,29 +13,18 @@ import json
 def parse_args():
 
     parser = argparse.ArgumentParser()
-
-    parser.add_argument("--base_model_dir",type=str,required=True,help="local or huggingface hub directory of base model")
     parser.add_argument("--comet_model_dir",type=str,default="Unbabel/wmt22-comet-da")
     parser.add_argument("--log_dir",type=str, default=None)
 
     return parser.parse_args()
 
+@sgl.function
+def translation_inference(s, prompt:str,**kwargs):
 
-def load_models(model_path,comet_model_path):
-
-    comet_model = load_from_checkpoint(download_model(comet_model_path))
-    model = LLM(model=model_path)  # Create an LLM.
-    # model=None
-    tokenizer=AutoTokenizer.from_pretrained(model_path)
-    return model,tokenizer, comet_model
+    s += prompt + sgl.gen("output",**kwargs)
 
 
-def eval_translation_scores(model,tokenizer,comet_model,dataset,sampling_params=None):
-    """
-    model : vllm llm instance
-    """
-    sacrebleu = datasets.load_metric('sacrebleu')
-
+def prepare_test_dataset(dataset):
     src_tgt_dict={"en":"english","eng":"english","english":"english","ko":"korean","kor":"korean","korean":"korean"}
 
     sources_ko=[]
@@ -56,32 +45,33 @@ def eval_translation_scores(model,tokenizer,comet_model,dataset,sampling_params=
             references_ko.append([data["korean"]])
             input_eng_to_ko.append(make_translation_prompt(data,tokenizer,no_output=True)["text"])
 
-    pred_ko_to_eng=model.generate(input_ko_to_eng,sampling_params)
-    pred_eng_to_ko=model.generate(input_eng_to_ko,sampling_params)
+    return  sources_ko,references_eng,sources_eng,references_ko,input_ko_to_eng,input_eng_to_ko
 
-    pred_ko_to_eng=[request.outputs[0].text.strip() for request in pred_ko_to_eng]
-    pred_eng_to_ko=[request.outputs[0].text.strip() for request in pred_eng_to_ko]
 
-    comet_ko_to_eng=[]
-    comet_eng_to_ko=[]
-    for s_ko,r_eng,p_ko_to_eng,s_eng,r_ko,p_eng_to_ko in zip(sources_ko,references_eng,pred_ko_to_eng,sources_eng,references_ko,pred_eng_to_ko):
-        comet_ko_to_eng.append({
-            "src": s_ko,
-            "mt": p_ko_to_eng,
-            "ref": r_eng[0]
-        })
+def get_metrics(src,ref,hyp,comet_model):
+    sacrebleu = datasets.load_metric('sacrebleu')
+    bleu_score=sacrebleu.compute(predictions=hyp, references=ref)['score']
 
-        comet_eng_to_ko.append({
-            "src": s_eng,
-            "mt": p_eng_to_ko,
-            "ref": r_ko[0]
-        })
+    comet_input=[{"src": s,
+                "mt": r,
+                "ref": h,
+                } for s,r,h in zip(src,ref,hyp)]
+    comet_score=comet_model.predict(comet_input, batch_size=32, gpus=1)[1]
+    
+    return bleu_score,comet_score
 
-    sacre_bleu_ko_to_eng= sacrebleu.compute(predictions=pred_ko_to_eng, references=references_eng)['score']
-    sacre_bleu_eng_to_ko= sacrebleu.compute(predictions=pred_eng_to_ko, references=references_ko)['score']
+def gen_and_eval(tokenizer,comet_model,dataset):
 
-    comet_score_ko_to_eng = comet_model.predict(comet_ko_to_eng, batch_size=32, gpus=1)[1]
-    comet_score_eng_to_ko = comet_model.predict(comet_eng_to_ko, batch_size=32, gpus=1)[1]
+    sources_ko,references_eng,sources_eng,references_ko,input_ko_to_eng,input_eng_to_ko=prepare_test_dataset(dataset)
+
+    pred_ko_to_eng=translation_inference(input_ko_to_eng,temperature=0.15,max_new_tokens=4096)
+    pred_eng_to_ko=translation_inference(input_eng_to_ko,temperature=0.15,max_new_tokens=4096)
+
+    pred_ko_to_eng=[output["output"] for output in pred_ko_to_eng]
+    pred_eng_to_ko=[output["output"] for output in pred_eng_to_ko]
+
+    sacre_bleu_ko_to_eng,comet_score_ko_to_eng=get_metrics(soureces_eng,references_ko,pred_eng_to_ko)
+    sacre_bleu_eng_to_ko,comet_score_eng_to_ko=get_metrics(soureces_eng,references_ko,pred_eng_to_ko)
 
     return {"sacre_bleu_ko_to_eng":sacre_bleu_ko_to_eng,
             "sacre_bleu_eng_to_ko":sacre_bleu_eng_to_ko,
@@ -91,31 +81,72 @@ def eval_translation_scores(model,tokenizer,comet_model,dataset,sampling_params=
 
 def main(args):
 
-    sampling_params = SamplingParams(temperature=0.35,max_tokens=4096)
-    model,tokenizer,comet_model=load_models(args.base_model_dir,args.comet_model_dir)
+    comet_model = load_from_checkpoint(download_model(args.comet_model_path))
+    tokenizer=AutoTokenizer.from_pretrained(args.model_path)
 
-    dataset_wo_term_dict=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_valid_wo_term_dict").select(range(1000))
-    dataset_w_term_dict=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_valid_w_term_dict").select(range(1000))
-    flores=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/flores_ko_eng/test")
+    df=pd.read_excel("/root/azurestorage/data/번역데이터셋/raw_data/test_data_blood,sweat,tear.xlsx")
+    kor,eng,ge,gk,de,dk=df["Korean"].values,df["English"].values,df["g_e"].values,df["g_k"].values,df["d_e"].values,df["d_k"].values
 
-    score_wo_term_dict=eval_translation_scores(model,tokenizer,comet_model,dataset_wo_term_dict,sampling_params=sampling_params)
-    score_w_term_dict=eval_translation_scores(model,tokenizer,comet_model,dataset_w_term_dict,sampling_params=sampling_params)
-    score_flores=eval_translation_scores(model,tokenizer,comet_model,flores,sampling_params=sampling_params)
+    ge_bleu,ge_comet=get_metrics(kor,eng,ge,comet_model)
+    gk_bleu,gk_comet=get_metrics(eng,kor,gk,comet_model)
+    de_bleu,de_comet=get_metrics(kor,eng,de,comet_model)
+    dk_bleu,dk_comet=get_metrics(eng,kor,dk,comet_model)
+    
+    print("----ge_bleu----")
+    print(ge_bleu)
+    print("----ge_comet----")
+    print(ge_comet)
+    print("----gk_bleu----")
+    print(gk_bleu)
+    print("----gk_comet----")
+    print(gk_comet)
+    print("----de_bleu----")
+    print(de_bleu)
+    print("----de_comet----")
+    print(de_comet)
+    print("----dk_bleu----")
+    print(dk_bleu)
+    print("----dk_comet----")
+    print(dk_comet)
 
-    print("----score_wo_term_dict----")
-    print(score_wo_term_dict)
-    print("----score_w_term_dict----")
-    print(score_w_term_dict)
-    print("----score_flores----")
-    print(score_flores)
+    # if not os.path.exists("../test_result/"):
+    #     os.mkdir("../test_result/")
 
-    if not os.path.exists("../test_result/"):
-        os.mkdir("../test_result/")
+    # with open(f'''../test_result/{args.base_model_dir.split("/")[-1]}.jsonl''', "w",encoding='utf-8') as f:
+    #     f.write(json.dumps({"score_wo_term_dict":score_wo_term_dict},ensure_ascii=False)+"\n")
+    #     f.write(json.dumps({"score_w_term_dict":score_w_term_dict},ensure_ascii=False)+"\n")
+    #     f.write(json.dumps({"score_flores":score_flores},ensure_ascii=False)+"\n")
 
-    with open(f'''../test_result/{args.base_model_dir.split("/")[-1]}.jsonl''', "w",encoding='utf-8') as f:
-        f.write(json.dumps({"score_wo_term_dict":score_wo_term_dict},ensure_ascii=False)+"\n")
-        f.write(json.dumps({"score_w_term_dict":score_w_term_dict},ensure_ascii=False)+"\n")
-        f.write(json.dumps({"score_flores":score_flores},ensure_ascii=False)+"\n")
+
+
+
+# def main(args):
+
+#     comet_model = load_from_checkpoint(download_model(args.comet_model_path))
+#     tokenizer=AutoTokenizer.from_pretrained(args.model_path)
+
+#     dataset_wo_term_dict=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_valid_wo_term_dict").select(range(1000))
+#     dataset_w_term_dict=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_valid_w_term_dict").select(range(1000))
+#     flores=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/flores_ko_eng/test")
+
+#     score_wo_term_dict=gen_and_eval(tokenizer,comet_model,dataset_wo_term_dict)
+#     score_w_term_dict=gen_and_eval(tokenizer,comet_model,dataset_w_term_dict)
+#     score_flores=gen_and_eval(tokenizer,comet_model,flores)
+
+#     print("----score_wo_term_dict----")
+#     print(score_wo_term_dict)
+#     print("----score_w_term_dict----")
+#     print(score_w_term_dict)
+#     print("----score_flores----")
+#     print(score_flores)
+
+#     if not os.path.exists("../test_result/"):
+#         os.mkdir("../test_result/")
+
+#     with open(f'''../test_result/{args.base_model_dir.split("/")[-1]}.jsonl''', "w",encoding='utf-8') as f:
+#         f.write(json.dumps({"score_wo_term_dict":score_wo_term_dict},ensure_ascii=False)+"\n")
+#         f.write(json.dumps({"score_w_term_dict":score_w_term_dict},ensure_ascii=False)+"\n")
+#         f.write(json.dumps({"score_flores":score_flores},ensure_ascii=False)+"\n")
 
 
 if __name__=="__main__":
