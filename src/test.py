@@ -9,6 +9,7 @@ import json
 import pandas as pd
 from sglang import function, system, user, assistant, gen, set_default_backend, RuntimeEndpoint
 import sglang as sgl
+from utils import make_translation_prompt
 
 
 
@@ -28,32 +29,29 @@ def translation_inference(s, prompt:str,**kwargs):
 
 
 
-def make_translation_prompt(src:str,tgt:str,text:str,term_dict:dict):
+def make_translation_prompt_raw_text(src:str,tgt:str,text:str,term_dict:dict):
 
-    if term_dict is not None:
-        template=f"""<|im_start|>system 
-Translate the {src} sentence into {tgt}.
-Glossary :  {term_dict}
-<|im_end|> 
-<|im_start|>user 
+    if term_dict is None:
+        template=f"""### Instruction:
+Translate the {src} text into {tgt}.
+### Input:
 {text}
-<|im_end|> 
-<|im_start|>assistant
+### Translation:
 """
 
     else:
-        template= f"""<|im_start|>system 
-Translate the {src} sentence into {tgt}, referring to the glossary below.
-<|im_end|> 
-<|im_start|>user 
+        template= f""""### Instruction:
+Translate the {src} text into {tgt}, referring to the glossary below.
+### Glossary:
+{term_dict}
+### Input:
 {text}
-<|im_end|> 
-<|im_start|>assistant
+### Translation:
 """
     return template
 
 
-def prepare_test_dataset(dataset):
+def prepare_test_dataset(dataset,tokenizer):
     src_tgt_dict={"en":"english","eng":"english","english":"english","ko":"korean","kor":"korean","korean":"korean"}
 
     sources_ko=[]
@@ -68,11 +66,11 @@ def prepare_test_dataset(dataset):
         if src_tgt_dict[data["src"]]=="korean":
             sources_ko.append(data["korean"])
             references_eng.append([data["english"]])
-            input_ko_to_eng.append(make_translation_prompt(data,tokenizer,no_output=True)["text"])
+            input_ko_to_eng.append({"prompt":make_translation_prompt(data,tokenizer,no_output=True)["text"]})
         else:
             sources_eng.append(data["english"])
             references_ko.append([data["korean"]])
-            input_eng_to_ko.append(make_translation_prompt(data,tokenizer,no_output=True)["text"])
+            input_eng_to_ko.append({"prompt":make_translation_prompt(data,tokenizer,no_output=True)["text"]})
 
     return  sources_ko,references_eng,sources_eng,references_ko,input_ko_to_eng,input_eng_to_ko
 
@@ -89,54 +87,57 @@ def get_metrics(src,ref,hyp,comet_model):
     
     return bleu_score,comet_score
 
-# def gen_and_eval(tokenizer,comet_model,dataset):
+def gen_and_eval(tokenizer,comet_model,dataset):
 
-#     sources_ko,references_eng,sources_eng,references_ko,input_ko_to_eng,input_eng_to_ko=prepare_test_dataset(dataset)
+    sources_ko,references_eng,sources_eng,references_ko,input_ko_to_eng,input_eng_to_ko=prepare_test_dataset(dataset,tokenizer)
 
-#     pred_ko_to_eng=translation_inference(input_ko_to_eng,temperature=0.15,max_new_tokens=4096)
-#     pred_eng_to_ko=translation_inference(input_eng_to_ko,temperature=0.15,max_new_tokens=4096)
+    pred_ko_to_eng=translation_inference.run_batch(input_ko_to_eng,temperature=0.15,max_new_tokens=4096,progress_bar=True)
+    pred_eng_to_ko=translation_inference.run_batch(input_eng_to_ko,temperature=0.15,max_new_tokens=4096,progress_bar=True)
 
-#     pred_ko_to_eng=[output["output"] for output in pred_ko_to_eng]
-#     pred_eng_to_ko=[output["output"] for output in pred_eng_to_ko]
+    pred_ko_to_eng=[output["output"] for output in pred_ko_to_eng]
+    pred_eng_to_ko=[output["output"] for output in pred_eng_to_ko]
 
-#     sacre_bleu_ko_to_eng,comet_score_ko_to_eng=get_metrics(soureces_eng,references_ko,pred_eng_to_ko)
-#     sacre_bleu_eng_to_ko,comet_score_eng_to_ko=get_metrics(soureces_eng,references_ko,pred_eng_to_ko)
+    sacre_bleu_ko_to_eng,comet_score_ko_to_eng=get_metrics(sources_eng,references_ko,pred_eng_to_ko,comet_model)
+    sacre_bleu_eng_to_ko,comet_score_eng_to_ko=get_metrics(sources_eng,references_ko,pred_eng_to_ko,comet_model)
 
-#     return {"sacre_bleu_ko_to_eng":sacre_bleu_ko_to_eng,
-#             "sacre_bleu_eng_to_ko":sacre_bleu_eng_to_ko,
-#             "comet_score_ko_to_eng":comet_score_ko_to_eng,
-#             "comet_score_eng_to_ko":comet_score_eng_to_ko,}
-
-
-def main(args):
-
-    comet_model = load_from_checkpoint(download_model(args.comet_model_dir))
-    tokenizer=AutoTokenizer.from_pretrained(args.model_path)
+    return {"sacre_bleu_ko_to_eng":sacre_bleu_ko_to_eng,
+            "sacre_bleu_eng_to_ko":sacre_bleu_eng_to_ko,
+            "comet_score_ko_to_eng":comet_score_ko_to_eng,
+            "comet_score_eng_to_ko":comet_score_eng_to_ko,}
 
 
-    df=pd.read_excel("/root/azurestorage/data/번역데이터셋/raw_data/test_data_blood,sweat,tear.xlsx")
+# def main(args):
 
-    kor,eng=df["Korean"].values.tolist(),df["English"].values.tolist() 
-    kor_to_eng=[{"prompt":make_translation_prompt(src="한국어",tgt="영어",text=text,term_dict=None)} for text in kor]
-    eng_to_ko=[{"prompt":make_translation_prompt(src="영어",tgt="한국어",text=text,term_dict=None)} for text in eng]
+#     comet_model = load_from_checkpoint(download_model(args.comet_model_dir))
+#     tokenizer=AutoTokenizer.from_pretrained(args.model_path)
 
-    kor_to_eng_gen=translation_inference.run_batch(kor_to_eng,progress_bar=True,temperature=0.15,max_new_tokens=4096)
-    kor_to_eng_gen=[t.text().split("<|im_start|>assistant\n")[-1] for t in kor_to_eng_gen]
 
-    eng_to_ko_gen=translation_inference.run_batch(eng_to_ko,progress_bar=True,temperature=0.15,max_new_tokens=4096)
-    eng_to_ko_gen=[t.text().split("<|im_start|>assistant\n")[-1] for t in eng_to_ko_gen]
+#     df=pd.read_excel("/root/azurestorage/data/번역데이터셋/raw_data/test_data_blood,sweat,tear.xlsx")
 
-    our_model_k_bleu,our_model_k_comet=get_metrics(eng,kor,eng_to_ko_gen,comet_model)
-    our_model_e_bleu,our_model_e_comet=get_metrics(kor,eng,kor_to_eng_gen,comet_model)
+#     kor,eng=df["Korean"].values.tolist(),df["English"].values.tolist() 
+#     kor_to_eng=[{"prompt":make_translation_prompt(src="Korean",tgt="English",text=text,term_dict=None)} for text in kor]
+#     eng_to_ko=[{"prompt":make_translation_prompt(src="English",tgt="Korean",text=text,term_dict=None)} for text in eng]
+
+#     print("example 1: ",kor_to_eng[0])
+#     print("example 2: ",eng_to_ko[0])
+
+#     kor_to_eng_gen=translation_inference.run_batch(kor_to_eng,progress_bar=True,temperature=0.15,max_new_tokens=4096)
+#     kor_to_eng_gen=[t.text().split("### Translation:\n")[-1] for t in kor_to_eng_gen]
+
+#     eng_to_ko_gen=translation_inference.run_batch(eng_to_ko,progress_bar=True,temperature=0.15,max_new_tokens=4096)
+#     eng_to_ko_gen=[t.text().split("### Translation:\n")[-1] for t in eng_to_ko_gen]
+
+#     our_model_k_bleu,our_model_k_comet=get_metrics(eng,kor,eng_to_ko_gen,comet_model)
+#     our_model_e_bleu,our_model_e_comet=get_metrics(kor,eng,kor_to_eng_gen,comet_model)
     
-    print("----our_model_e_bleu----")
-    print(our_model_e_bleu)
-    print("----our_model_e_comet----")
-    print(our_model_e_comet)
-    print("----our_model_k_bleu----")
-    print(our_model_k_bleu)
-    print("----our_model_k_comet----")
-    print(our_model_k_comet)
+#     print("----our_model_e_bleu----")
+#     print(our_model_e_bleu)
+#     print("----our_model_e_comet----")
+#     print(our_model_e_comet)
+#     print("----our_model_k_bleu----")
+#     print(our_model_k_bleu)
+#     print("----our_model_k_comet----")
+#     print(our_model_k_comet)
 
     # if not os.path.exists("../test_result/"):
     #     os.mkdir("../test_result/")
@@ -149,36 +150,36 @@ def main(args):
 
 
 
-# def main(args):
+def main(args):
 
-#     comet_model = load_from_checkpoint(download_model(args.comet_model_path))
-#     tokenizer=AutoTokenizer.from_pretrained(args.model_path)
+    comet_model = load_from_checkpoint(download_model(args.comet_model_dir))
+    tokenizer=AutoTokenizer.from_pretrained(args.model_path)
 
-#     dataset_wo_term_dict=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_valid_wo_term_dict").select(range(1000))
-#     dataset_w_term_dict=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_valid_w_term_dict").select(range(1000))
-#     flores=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/flores_ko_eng/test")
+    dataset_wo_term_dict=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_valid_wo_term_dict").select(range(1000))
+    dataset_w_term_dict=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/translation_dataset_valid_w_term_dict").select(range(1000))
+    flores=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/prepared_for_training/flores_ko_eng/test")
 
-#     score_wo_term_dict=gen_and_eval(tokenizer,comet_model,dataset_wo_term_dict)
-#     score_w_term_dict=gen_and_eval(tokenizer,comet_model,dataset_w_term_dict)
-#     score_flores=gen_and_eval(tokenizer,comet_model,flores)
+    score_wo_term_dict=gen_and_eval(tokenizer,comet_model,dataset_wo_term_dict)
+    score_w_term_dict=gen_and_eval(tokenizer,comet_model,dataset_w_term_dict)
+    score_flores=gen_and_eval(tokenizer,comet_model,flores)
 
-#     print("----score_wo_term_dict----")
-#     print(score_wo_term_dict)
-#     print("----score_w_term_dict----")
-#     print(score_w_term_dict)
-#     print("----score_flores----")
-#     print(score_flores)
+    print("----score_wo_term_dict----")
+    print(score_wo_term_dict)
+    print("----score_w_term_dict----")
+    print(score_w_term_dict)
+    print("----score_flores----")
+    print(score_flores)
 
-#     if not os.path.exists("../test_result/"):
-#         os.mkdir("../test_result/")
+    if not os.path.exists("../test_result/"):
+        os.mkdir("../test_result/")
 
-#     with open(f'''../test_result/{args.base_model_dir.split("/")[-1]}.jsonl''', "w",encoding='utf-8') as f:
-#         f.write(json.dumps({"score_wo_term_dict":score_wo_term_dict},ensure_ascii=False)+"\n")
-#         f.write(json.dumps({"score_w_term_dict":score_w_term_dict},ensure_ascii=False)+"\n")
-#         f.write(json.dumps({"score_flores":score_flores},ensure_ascii=False)+"\n")
+    with open(f'''../test_result/{args.base_model_dir.split("/")[-1]}.jsonl''', "w",encoding='utf-8') as f:
+        f.write(json.dumps({"score_wo_term_dict":score_wo_term_dict},ensure_ascii=False)+"\n")
+        f.write(json.dumps({"score_w_term_dict":score_w_term_dict},ensure_ascii=False)+"\n")
+        f.write(json.dumps({"score_flores":score_flores},ensure_ascii=False)+"\n")
 
 
 if __name__=="__main__":
-    set_default_backend(RuntimeEndpoint("http://localhost:30000"))
+    set_default_backend(RuntimeEndpoint("http://localhost:10000"))
     args=parse_args()
     main(args)
