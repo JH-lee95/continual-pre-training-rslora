@@ -55,8 +55,7 @@ def seed_everything(seed: int = 42):
 
 def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None,no_output=False):
 
-  # lang_dict={"korean":"한국어","english":"영어","ko":"한국어","eng":"영어","en":"영어"}
-  lang_dict={"korean":"Korean","english":"English","ko":"Korean","eng":"English","en":"English"}
+  lang_dict={"korean":"한국어","english":"영어","ko":"한국어","eng":"영어","en":"영어"}
   src_tgt_dict={"en":"english","eng":"english","english":"english","ko":"korean","kor":"korean","korean":"korean"}
 
   if not src and not tgt:
@@ -67,24 +66,24 @@ def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None,no_output=
       raise Exception("'src'와 'tgt'가 주어지거나, data의 key로 존재해야합니다.")
 
   if "term_dict" not in data.keys() or not len(data["term_dict"]) or data["term_dict"] is None:
-    template = f"""<|im_start|>system 
-Translate the {lang_dict[src]} sentence into {lang_dict[tgt]}.<|im_end|> 
-<|im_start|>user 
-{data[src]}<|im_end|> 
-<|im_start|>assistant
+    template = f"""### Instruction:
+Translate the {lang_dict[src]} text into {lang_dict[tgt]}.
+### Input:
+{data[src]}
+### Translation:
 {data[tgt]}{tokenizer.eos_token}"""
   else:
-    template = f"""<|im_start|>system 
-Translate the {lang_dict[src]} sentence into {lang_dict[tgt]}, referring to the glossary below.
-
-용어사전 :  {data["term_dict"]}<|im_end|> 
-<|im_start|>user 
-{data[src]}<|im_end|> 
-<|im_start|>assistant
+    template = f"""### Instruction:
+Translate the {lang_dict[src]} text into {lang_dict[tgt]}, referring to the glossary below.
+### Glossary:
+{data["term_dict"]}
+### Input:
+{data[src]}
+### Translation:
 {data[tgt]}{tokenizer.eos_token}"""
 
   if no_output:
-    template=template[:template.rfind("<|im_start|>assistant")+len("<|im_start|>assistant")]
+    template=template[:template.rfind("### Translation:")+len("### Translation:")]
 
   return {"text":template}
 

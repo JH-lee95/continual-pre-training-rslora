@@ -86,7 +86,7 @@ def load_and_prepare_dataset(tokenizer,seed,max_len,metric=True):
 
 def load_and_prepare_dataset_cpo(tokenizer,seed,max_len,metric=True):
 
-    response_template_with_context = "\n### Output:\n"
+    response_template_with_context = "\n### Translation:\n"
  
     columns=["korean","english","src","tgt"]
   
