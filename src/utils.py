@@ -17,41 +17,6 @@ def seed_everything(seed: int = 42):
     torch.backends.cudnn.deterministic = True  # type: ignore
     torch.backends.cudnn.benchmark = True  # type: ignore
 
-def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None,no_output=False):
-
-  lang_dict={"korean":"한국어","english":"영어","ko":"한국어","eng":"영어","en":"영어"}
-  src_tgt_dict={"en":"english","eng":"english","english":"english","ko":"korean","kor":"korean","korean":"korean"}
-
-  if not src and not tgt:
-    if "src" in data.keys() and "tgt" in data.keys():
-      src=src_tgt_dict[data["src"]]
-      tgt=src_tgt_dict[data["tgt"]]
-    else:
-      raise Exception("'src'와 'tgt'가 주어지거나, data의 key로 존재해야합니다.")
-
-  if "term_dict" not in data.keys() or not len(data["term_dict"]) or data["term_dict"] is None:
-    template = f"""### Instruction:
-{lang_dict[src]}를 {lang_dict[tgt]}로 번역하시오.
-### Input:
-{data[src]}
-### Output:
-{data[tgt]}{tokenizer.eos_token}"""
-  else:
-    template = f"""### Instruction:
-아래의 용어사전을 참조하여, {lang_dict[src]}를 {lang_dict[tgt]}로 번역하시오.
-
-용어사전 : {data["term_dict"]}
-### Input:
-{data[src]}
-### Output:
-{data[tgt]}{tokenizer.eos_token}"""
-
-  if no_output:
-    template=template[:template.rfind("### Output:")+len("### Output:")]
-
-  return {"text":template}
-
-
 # def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None,no_output=False):
 
 #   lang_dict={"korean":"한국어","english":"영어","ko":"한국어","eng":"영어","en":"영어"}
@@ -64,19 +29,64 @@ def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None,no_output=
 #     else:
 #       raise Exception("'src'와 'tgt'가 주어지거나, data의 key로 존재해야합니다.")
 
-#   template = f"""### Instruction:
-#   아래의 용어사전속 단어를 사용하여, 주어진 {lang_dict[src]}를 {lang_dict[tgt]}로 번역하시오.
+#   if "term_dict" not in data.keys() or not len(data["term_dict"]) or data["term_dict"] is None:
+#     template = f"""### Instruction:
+# {lang_dict[src]}를 {lang_dict[tgt]}로 번역하시오.
+# ### Input:
+# {data[src]}
+# ### Output:
+# {data[tgt]}{tokenizer.eos_token}"""
+#   else:
+#     template = f"""### Instruction:
+# 아래의 용어사전을 참조하여, {lang_dict[src]}를 {lang_dict[tgt]}로 번역하시오.
 
-#   용어사전 : {data["term_dict"]}
-#   ### Input:
-#   {data[src]}
-#   ### Output:
-#   {data[tgt]}{tokenizer.eos_token}"""
+# 용어사전 : {data["term_dict"]}
+# ### Input:
+# {data[src]}
+# ### Output:
+# {data[tgt]}{tokenizer.eos_token}"""
 
 #   if no_output:
 #     template=template[:template.rfind("### Output:")+len("### Output:")]
 
 #   return {"text":template}
+
+
+
+def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None,no_output=False):
+
+  # lang_dict={"korean":"한국어","english":"영어","ko":"한국어","eng":"영어","en":"영어"}
+  lang_dict={"korean":"Korean","english":"English","ko":"Korean","eng":"English","en":"English"}
+  src_tgt_dict={"en":"english","eng":"english","english":"english","ko":"korean","kor":"korean","korean":"korean"}
+
+  if not src and not tgt:
+    if "src" in data.keys() and "tgt" in data.keys():
+      src=src_tgt_dict[data["src"]]
+      tgt=src_tgt_dict[data["tgt"]]
+    else:
+      raise Exception("'src'와 'tgt'가 주어지거나, data의 key로 존재해야합니다.")
+
+  if "term_dict" not in data.keys() or not len(data["term_dict"]) or data["term_dict"] is None:
+    template = f"""<|im_start|>system 
+Translate the {lang_dict[src]} sentence into {lang_dict[tgt]}.<|im_end|> 
+<|im_start|>user 
+{data[src]}<|im_end|> 
+<|im_start|>assistant
+{data[tgt]}{tokenizer.eos_token}"""
+  else:
+    template = f"""<|im_start|>system 
+Translate the {lang_dict[src]} sentence into {lang_dict[tgt]}, referring to the glossary below.
+
+용어사전 :  {data["term_dict"]}<|im_end|> 
+<|im_start|>user 
+{data[src]}<|im_end|> 
+<|im_start|>assistant
+{data[tgt]}{tokenizer.eos_token}"""
+
+  if no_output:
+    template=template[:template.rfind("<|im_start|>assistant")+len("<|im_start|>assistant")]
+
+  return {"text":template}
 
 
 def add_src_tgt_tag(dataset):
