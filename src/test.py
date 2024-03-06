@@ -36,7 +36,7 @@ def make_translation_prompt_raw_text(src:str,tgt:str,text:str,term_dict:dict):
 Translate the {src} text into {tgt}.
 ### Input:
 {text}
-### Translation:
+### Output:
 """
 
     else:
@@ -46,7 +46,7 @@ Translate the {src} text into {tgt}, referring to the glossary below.
 {term_dict}
 ### Input:
 {text}
-### Translation:
+### Output:
 """
     return template
 

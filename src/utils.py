@@ -55,7 +55,9 @@ def seed_everything(seed: int = 42):
 
 def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None,no_output=False):
 
-  lang_dict={"korean":"한국어","english":"영어","ko":"한국어","eng":"영어","en":"영어"}
+  # lang_dict={"korean":"한국어","english":"영어","ko":"한국어","eng":"영어","en":"영어"}
+
+  lang_dict={"korean":"Korean","english":"English","ko":"Korean","eng":"English","en":"English"}
   src_tgt_dict={"en":"english","eng":"english","english":"english","ko":"korean","kor":"korean","korean":"korean"}
 
   if not src and not tgt:
@@ -70,20 +72,20 @@ def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None,no_output=
 Translate the {lang_dict[src]} text into {lang_dict[tgt]}.
 ### Input:
 {data[src]}
-### Translation:
+### Output:
 {data[tgt]}{tokenizer.eos_token}"""
   else:
     template = f"""### Instruction:
 Translate the {lang_dict[src]} text into {lang_dict[tgt]}, referring to the glossary below.
-### Glossary:
-{data["term_dict"]}
+
+Glossary : {data["term_dict"]}
 ### Input:
 {data[src]}
-### Translation:
+### Output:
 {data[tgt]}{tokenizer.eos_token}"""
 
   if no_output:
-    template=template[:template.rfind("### Translation:")+len("### Translation:")]
+    template=template[:template.rfind("### Output:")+len("### Output:")]
 
   return {"text":template}
 
