@@ -72,7 +72,7 @@ def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None,no_output=
 Translate the {lang_dict[src]} text into {lang_dict[tgt]}.
 ### Input:
 {data[src]}
-### Output:
+### Translation:
 {data[tgt]}{tokenizer.eos_token}"""
   else:
     template = f"""### Instruction:
@@ -81,11 +81,11 @@ Translate the {lang_dict[src]} text into {lang_dict[tgt]}, referring to the glos
 Glossary : {data["term_dict"]}
 ### Input:
 {data[src]}
-### Output:
+### Translation:
 {data[tgt]}{tokenizer.eos_token}"""
 
   if no_output:
-    template=template[:template.rfind("### Output:")+len("### Output:")]
+    template=template[:template.rfind("### Translation:")+len("### Translation:")]
 
   return {"text":template}
 
@@ -157,9 +157,3 @@ def prepare_translation_dataset(raw_dataset_path,term_dict_path):
     dataset=Dataset.from_pandas(merged_df)
     print("Dataset prepared")
     return dataset
-    
-    
-    
-    
-
-

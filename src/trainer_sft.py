@@ -156,8 +156,8 @@ def main(args):
     training_arguments=training_arguments.set_save(strategy="steps",steps=eval_steps,total_limit=20,)
     training_arguments.load_best_model_at_end=True
 
-    response_template_with_context = "\n### Output:\n"  # We added context here: "\n". This is enough for this tokenizer
-    # response_template_with_context="\n### Translation:\n"
+    # response_template_with_context = "\n### Output:\n"  # We added context here: "\n". This is enough for this tokenizer
+    response_template_with_context="\n### Translation:\n"
     response_template_ids = tokenizer.encode(response_template_with_context, add_special_tokens=False)[2:]
     collator=DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
