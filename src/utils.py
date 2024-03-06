@@ -76,7 +76,7 @@ Translate the {lang_dict[src]} text into {lang_dict[tgt]}.
 {data[tgt]}{tokenizer.eos_token}"""
   else:
     template = f"""### Instruction:
-Translate the {lang_dict[src]} text into {lang_dict[tgt]}, referring to the glossary below.
+Translate the {lang_dict[src]} text into {lang_dict[tgt]},using the glossary below.
 
 Glossary : {data["term_dict"]}
 ### Input:
