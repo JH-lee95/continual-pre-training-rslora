@@ -30,10 +30,12 @@ Glossary : [term_dict]
 '''
 
     if term_dict is not None:
-        return template.format(src,tgt,term_dict,text)
+        template= template.format(src,tgt,term_dict,text)
 
     else:
-        return template.format(src,tgt,text)
+        template= template.format(src,tgt,text)
+
+    return template
 
 def make_translation_input_from_dataset(data,
                                   tokenizer,
@@ -42,7 +44,7 @@ def make_translation_input_from_dataset(data,
                                   response_template:str=None,
                                   src:str=None, 
                                   tgt:str=None,
-                                  no_output=False):
+                                  output=True):
 
   # lang_dict={"korean":"한국어","english":"영어","ko":"한국어","eng":"영어","en":"영어"}
 
@@ -57,13 +59,19 @@ def make_translation_input_from_dataset(data,
       raise Exception("'src'와 'tgt'가 주어지거나, data의 key로 존재해야합니다.")
 
   if "term_dict" not in data.keys() or not len(data["term_dict"]) or data["term_dict"] is None:
-    template=make_translation_prompt(lang_dict[src],lang_dict[tgt],data[src],data[tgt])+{tokenizer.eos_token}
+    template=make_translation_prompt(template=template_wo_term_dict,
+                                     src=lang_dict[src],
+                                     tgt=lang_dict[tgt],
+                                     text=data[src])
   else:
-    template=make_translation_prompt(lang_dict[src],lang_dict[tgt],data[src],data[tgt],term_dict=data["term_dict"])+{tokenizer.eos_token}
+    template=make_translation_prompt(template=template_w_term_dict,
+                                     src=lang_dict[src],
+                                     tgt=lang_dict[tgt],
+                                     text=data[src],
+                                     term_dict=data["term_dict"])
 
-  if no_output:
-    # template=template[:template.rfind("### Translation:")+len("### Translation:")]
-    template=template[:template.rfind(response_template)+len(response_template)]
+  if output:
+      template=template+data[tgt]+tokenizer.eos_token
 
   return {"text":template}
 
