@@ -17,43 +17,32 @@ def seed_everything(seed: int = 42):
     torch.backends.cudnn.deterministic = True  # type: ignore
     torch.backends.cudnn.benchmark = True  # type: ignore
 
-# def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None,no_output=False):
+def make_translation_prompt(template,src,tgt,text,term_dict=None):
+    '''
+ex)
+### Instruction:
+Translate the [src] text into [tgt], referring to the glossary below.
 
-#   lang_dict={"korean":"한국어","english":"영어","ko":"한국어","eng":"영어","en":"영어"}
-#   src_tgt_dict={"en":"english","eng":"english","english":"english","ko":"korean","kor":"korean","korean":"korean"}
+Glossary : [term_dict]
+### Input:
+[text]
+### Translation:
+'''
 
-#   if not src and not tgt:
-#     if "src" in data.keys() and "tgt" in data.keys():
-#       src=src_tgt_dict[data["src"]]
-#       tgt=src_tgt_dict[data["tgt"]]
-#     else:
-#       raise Exception("'src'와 'tgt'가 주어지거나, data의 key로 존재해야합니다.")
+    if term_dict is not None:
+        return template.format(src,tgt,term_dict,text)
 
-#   if "term_dict" not in data.keys() or not len(data["term_dict"]) or data["term_dict"] is None:
-#     template = f"""### Instruction:
-# {lang_dict[src]}를 {lang_dict[tgt]}로 번역하시오.
-# ### Input:
-# {data[src]}
-# ### Output:
-# {data[tgt]}{tokenizer.eos_token}"""
-#   else:
-#     template = f"""### Instruction:
-# 아래의 용어사전을 참조하여, {lang_dict[src]}를 {lang_dict[tgt]}로 번역하시오.
+    else:
+        return template.format(src,tgt,text)
 
-# 용어사전 : {data["term_dict"]}
-# ### Input:
-# {data[src]}
-# ### Output:
-# {data[tgt]}{tokenizer.eos_token}"""
-
-#   if no_output:
-#     template=template[:template.rfind("### Output:")+len("### Output:")]
-
-#   return {"text":template}
-
-
-
-def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None,no_output=False):
+def make_translation_input_from_dataset(data,
+                                  tokenizer,
+                                  template_wo_term_dict:str=None,
+                                  template_w_term_dict:str=None,
+                                  response_template:str=None,
+                                  src:str=None, 
+                                  tgt:str=None,
+                                  no_output=False):
 
   # lang_dict={"korean":"한국어","english":"영어","ko":"한국어","eng":"영어","en":"영어"}
 
@@ -68,24 +57,13 @@ def make_translation_prompt(data,tokenizer,src:str=None, tgt:str=None,no_output=
       raise Exception("'src'와 'tgt'가 주어지거나, data의 key로 존재해야합니다.")
 
   if "term_dict" not in data.keys() or not len(data["term_dict"]) or data["term_dict"] is None:
-    template = f"""### Instruction:
-Translate the {lang_dict[src]} text into {lang_dict[tgt]}.
-### Input:
-{data[src]}
-### Translation:
-{data[tgt]}{tokenizer.eos_token}"""
+    template=make_translation_prompt(lang_dict[src],lang_dict[tgt],data[src],data[tgt])+{tokenizer.eos_token}
   else:
-    template = f"""### Instruction:
-Translate the {lang_dict[src]} text into {lang_dict[tgt]},using the glossary below.
-
-Glossary : {data["term_dict"]}
-### Input:
-{data[src]}
-### Translation:
-{data[tgt]}{tokenizer.eos_token}"""
+    template=make_translation_prompt(lang_dict[src],lang_dict[tgt],data[src],data[tgt],term_dict=data["term_dict"])+{tokenizer.eos_token}
 
   if no_output:
-    template=template[:template.rfind("### Translation:")+len("### Translation:")]
+    # template=template[:template.rfind("### Translation:")+len("### Translation:")]
+    template=template[:template.rfind(response_template)+len(response_template)]
 
   return {"text":template}
 

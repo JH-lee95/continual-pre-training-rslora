@@ -47,6 +47,10 @@ def parse_args():
     parser.add_argument("--expr_desc",type=str,help = "description for experiment", default = None)
     parser.add_argument("--train",type=bool, default=True)
     parser.add_argument("--test",type=bool, default=False)
+    parser.add_argument("--template_w_term_dict",type=str, default=None)
+    parser.add_argument("--template_wo_term_dict",type=str, default=None)
+    parser.add_argument("--response_template",type=str, default=None)
+
 
     return parser.parse_args()
 
@@ -100,13 +104,16 @@ def main(args):
 
     ######################################### tokenizer & dataset #########################################
     tokenizer=load_tokenizer(args.base_model_dir)    
-    # train_dataset,eval_dataset,metric=load_and_prepare_dataset(tokenizer=tokenizer,seed=args.seed,max_len=args.max_len)
-    train_dataset=load_and_prepare_dataset(tokenizer=tokenizer,seed=args.seed,max_len=args.max_len)
-    # train_dataset,eval_dataset=load_and_prepare_dataset(tokenizer=tokenizer,seed=args.seed,max_len=args.max_len)
+    train_dataset=load_and_prepare_dataset(tokenizer=tokenizer,
+                                        seed=args.seed,
+                                        max_len=args.max_len,
+                                        template_wo_term_dict=args.template_wo_term_dict
+                                        template_w_term_dict=args.template_w_term_dict,
+                                        response_template=args.response_template,)
 
 
     if local_rank=="0":
-        print("-------example-------\n",train_dataset[0]["text"])
+        print("-------example-------\n",train_dataset[random.randint(0,len(train_dataset))]["text"])
     # train_dataset=load_and_prepare_dataset(tokenizer)
     
     if len(tokenizer)!=int(model.config.vocab_size):
@@ -154,10 +161,8 @@ def main(args):
     training_arguments=training_arguments.set_logging(strategy="steps",steps=100,report_to=["mlflow"])
     # training_arguments=training_arguments.set_evaluate(strategy="steps", batch_size=args.batch_size,steps=eval_steps,delay=0)
     training_arguments=training_arguments.set_save(strategy="steps",steps=eval_steps,total_limit=20,)
-    training_arguments.load_best_model_at_end=True
 
-    # response_template_with_context = "\n### Output:\n"  # We added context here: "\n". This is enough for this tokenizer
-    response_template_with_context="\n### Translation:\n"
+    response_template_with_context=f"\n{args.response_template}\n"
     response_template_ids = tokenizer.encode(response_template_with_context, add_special_tokens=False)[2:]
     collator=DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
@@ -172,7 +177,6 @@ def main(args):
     peft_config=peft_config if not args.full_ft else None,
     max_seq_length= args.max_len,
     dataset_text_field="text",
-    # compute_metrics=metric.compute_metrics
     # packing= True,
     )
     ######################################################################################################
