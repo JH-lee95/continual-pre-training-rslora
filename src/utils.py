@@ -17,7 +17,7 @@ def seed_everything(seed: int = 42):
     torch.backends.cudnn.deterministic = True  # type: ignore
     torch.backends.cudnn.benchmark = True  # type: ignore
 
-def make_translation_prompt(template,src,tgt,text,term_dict=None):
+def make_translation_prompt(template_wo_term_dict,template_w_term_dict,src,tgt,text,term_dict=None):
     '''
 ex)
 ### Instruction:
@@ -29,11 +29,11 @@ Glossary : [term_dict]
 ### Translation:
 '''
 
-    if term_dict is not None:
-        template= template.format(src,tgt,term_dict,text)
+    if term_dict is None or len(term_dict)==0:
+        template= template_wo_term_dict.format(src,tgt,text)
 
     else:
-        template= template.format(src,tgt,text)
+        template= template_w_term_dict.format(src,tgt,term_dict,text)
 
     return template
 
@@ -58,17 +58,24 @@ def make_translation_input_from_dataset(data,
     else:
       raise Exception("'src'와 'tgt'가 주어지거나, data의 key로 존재해야합니다.")
 
-  if "term_dict" not in data.keys() or not len(data["term_dict"]) or data["term_dict"] is None:
-    template=make_translation_prompt(template=template_wo_term_dict,
-                                     src=lang_dict[src],
-                                     tgt=lang_dict[tgt],
-                                     text=data[src])
-  else:
-    template=make_translation_prompt(template=template_w_term_dict,
+  template = make_translation_prompt(template_wo_term_dict=template_wo_term_dict,
+                                     template_w_term_dict=template_w_term_dict,
                                      src=lang_dict[src],
                                      tgt=lang_dict[tgt],
                                      text=data[src],
                                      term_dict=data["term_dict"])
+
+#   if "term_dict" not in data.keys() or not len(data["term_dict"]) or data["term_dict"] is None:
+#     template=make_translation_prompt(template=template_wo_term_dict,
+#                                      src=lang_dict[src],
+#                                      tgt=lang_dict[tgt],
+#                                      text=data[src])
+#   else:
+#     template=make_translation_prompt(template=template_w_term_dict,
+#                                      src=lang_dict[src],
+#                                      tgt=lang_dict[tgt],
+#                                      text=data[src],
+#                                      term_dict=data["term_dict"])
 
   if output:
       template=template+data[tgt]+tokenizer.eos_token

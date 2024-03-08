@@ -16,6 +16,7 @@ import ipdb
 from prettytable import PrettyTable
 import mlflow
 from training_modules import *
+from translation_template import TranslationTemplate
 
 def parse_args():
 
@@ -47,9 +48,6 @@ def parse_args():
     parser.add_argument("--expr_desc",type=str,help = "description for experiment", default = None)
     parser.add_argument("--train",type=bool, default=True)
     parser.add_argument("--test",type=bool, default=False)
-    parser.add_argument("--template_w_term_dict",type=str, default=None)
-    parser.add_argument("--template_wo_term_dict",type=str, default=None)
-    parser.add_argument("--response_template",type=str, default=None)
 
 
     return parser.parse_args()
@@ -107,9 +105,9 @@ def main(args):
     train_dataset=load_and_prepare_dataset(tokenizer=tokenizer,
                                         seed=args.seed,
                                         max_len=args.max_len,
-                                        template_wo_term_dict=args.template_wo_term_dict,
-                                        template_w_term_dict=args.template_w_term_dict,
-                                        response_template=args.response_template,)
+                                        template_wo_term_dict=TranslationTemplate.template_wo_term_dict,
+                                        template_w_term_dict=TranslationTemplate.template_w_term_dict,
+                                        response_template=TranslationTemplate.response_template)
 
 
     if local_rank=="0":
@@ -162,7 +160,7 @@ def main(args):
     # training_arguments=training_arguments.set_evaluate(strategy="steps", batch_size=args.batch_size,steps=eval_steps,delay=0)
     training_arguments=training_arguments.set_save(strategy="steps",steps=eval_steps,total_limit=20,)
 
-    response_template_with_context=f"\n{args.response_template}\n"
+    response_template_with_context=f"\n{TranslationTemplate.response_template}\n"
     response_template_ids = tokenizer.encode(response_template_with_context, add_special_tokens=False)[2:]
     collator=DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
