@@ -19,7 +19,8 @@ def seed_everything(seed: int = 42):
 
 def make_translation_input_from_dataset(data,
                                   tokenizer,
-                                  translation_template:str=None,
+                                  translation_template_wo_term_dict:str=None,
+                                  translation_template_w_term_dict:str=None,
                                   glossary_template:str=None,
                                   glossary_tags:list=None,
                                   src:str=None, 
@@ -42,16 +43,18 @@ def make_translation_input_from_dataset(data,
                         term_dict=data["term_dict"],
                         glossary_template=glossary_template,
                         glossary_tags=glossary_tags,)
-    term_dict=None,
-    template=translation_template.format(src,tgt,text)
+    template=translation_template_wo_term_dict.format(src,tgt,text)
 
   else:
     text=data["src"]
     term_dict=data["term_dict"]
     if len(term_dict) & term_dict is not None:
-        template=translation_template.format(src,tgt,term_dict,text)
+        if translation_template_w_term_dict is not None:
+            template=translation_template_w_term_dict.format(src,tgt,term_dict,text)
+        else:
+            raise "translation_template_w_term_dict is not given."
     else:
-        template=translation_template.format(src,tgt,text)
+        template=translation_template_wo_term_dict.format(src,tgt,text)
 
 
   if output:

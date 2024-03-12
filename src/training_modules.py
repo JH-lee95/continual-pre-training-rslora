@@ -58,18 +58,21 @@ def load_model(base_model_path,
 def load_and_prepare_dataset(tokenizer,         
                             seed,
                             max_len,
-                            translation_template:str=None,
+                            translation_template_wo_term_dict:str=None,
+                            translation_template_w_term_dict:str=None,
                             glossary_template:str=None,
                             glossary_tags:str=None,):
 
     columns=["korean","english","src","tgt"]
     dataset=Dataset.load_from_disk("/nvme_temp/prepared_for_training/training_dataset_20k")
     dataset=dataset.map(make_translation_input_from_dataset,
-                        fn_kwargs={"tokenizer":tokenizer,
-                                "translation_template":translation_template,
-                                  "glossary_template":glossary_template,
-                                  "glossary_tags":glossary_tags,
-                                }
+                        fn_kwargs={
+                            "tokenizer":tokenizer,
+                            "translation_template_wo_term_dict":translation_template_wo_term_dict,
+                            "translation_template_w_term_dict":translation_template_w_term_dict,
+                            "glossary_template":glossary_template,
+                            "glossary_tags":glossary_tags,
+                              }
                                 )
 
     return dataset

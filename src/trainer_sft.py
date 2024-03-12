@@ -105,7 +105,8 @@ def main(args):
     train_dataset=load_and_prepare_dataset(tokenizer=tokenizer,
                                         seed=args.seed,
                                         max_len=args.max_len,
-                                        translation_template=TranslationTemplate.translation_sent2term,
+                                        translation_template_wo_term_dict=TranslationTemplate.translation_sent2term,
+                                        translation_template_w_term_dict=TranslationTemplate.template_w_term_dict,
                                         glossary_template=TranslationTemplate.glossary_template,
                                         glossary_tags=TranslationTemplate.glossary_tags,)
 
