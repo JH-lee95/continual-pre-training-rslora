@@ -29,6 +29,8 @@ def load_tokenizer(base_model_path,additional_special_tokens:list=None):
     ## padding with eos_token might make repetiton in inference.
     tokenizer.pad_token=tokenizer.unk_token
 
+  print("pad_token :" tokenizer.pad_token)
+
   tokenizer.padding_side="right"
   return tokenizer
 
