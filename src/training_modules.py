@@ -3,6 +3,7 @@ from transformers import (
   AutoTokenizer, 
   BitsAndBytesConfig,
     get_cosine_with_hard_restarts_schedule_with_warmup,
+    get_cosine_schedule_with_warmup,
     AdamW,
   )
 import bitsandbytes as bnb
@@ -123,13 +124,13 @@ def load_optimizer_scheduler(model,
                         )
 
 
-    # scheduler=get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
-    #                                                             num_warmup_steps=total_update_steps*warmup_ratio,
-    #                                                             num_cycles=0.3,
-    #                                                             num_training_steps=total_update_steps)
+    scheduler=get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
+                                                                num_warmup_steps=total_update_steps*warmup_ratio,
+                                                                num_cycles=0.3,
+                                                                num_training_steps=total_update_steps)
 
-    scheduler=get_cosine_schedule_with_warmup(optimizer,
-                                            num_warmup_steps=total_update_steps*warmup_ratio,
-                                            num_cycles=0.3,
-                                            num_training_steps=total_update_steps)
+    # scheduler=get_cosine_schedule_with_warmup(optimizer,
+    #                                         num_warmup_steps=total_update_steps*warmup_ratio,
+    #                                         num_cycles=0.3,
+    #                                         num_training_steps=total_update_steps)
     return optimizer,scheduler

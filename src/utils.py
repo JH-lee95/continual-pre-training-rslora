@@ -49,23 +49,23 @@ def make_translation_input_from_dataset(data,
                         term_dict=data["term_dict"],
                         glossary_template=glossary_template,
                         glossary_tags=glossary_tags,)
-    template=translation_template_wo_term_dict.format(src,tgt,text)
+    template=translation_template_wo_term_dict.format(lang_dict[src],lang_dict[tgt],text)
 
   else:
     text=data["src"]
     term_dict=data["term_dict"]
     if len(term_dict) & term_dict is not None:
         if translation_template_w_term_dict is not None:
-            template=translation_template_w_term_dict.format(src,tgt,term_dict,text)
+            template=translation_template_w_term_dict.format(lang_dict[src],lang_dict[tgt],term_dict,text)
         else:
             raise "translation_template_w_term_dict is not given."
     else:
-        template=translation_template_wo_term_dict.format(src,tgt,text)
+        template=translation_template_wo_term_dict.format(lang_dict[src],lang_dict[tgt],text)
 
 
   if output:
       template=template+data[tgt]+tokenizer.eos_token
-
+      
   return {"text":template}
 
 def pair_sent_terms(lang,
@@ -112,7 +112,7 @@ def pair_sent_terms(lang,
         for s in splited_sents:
             sent2terms.append(s)
 
-    return sent2terms
+    return "".join(sent2terms)
 
 
 def add_src_tgt_tag(dataset):
