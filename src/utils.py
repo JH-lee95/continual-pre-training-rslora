@@ -46,8 +46,6 @@ def make_translation_input_from_dataset(data,
                                   tgt:str=None,
                                   output=True):
 
-  # lang_dict={"korean":"한국어","english":"영어","ko":"한국어","eng":"영어","en":"영어"}
-
   lang_dict={"korean":"Korean","english":"English","ko":"Korean","eng":"English","en":"English"}
   src_tgt_dict={"en":"english","eng":"english","english":"english","ko":"korean","kor":"korean","korean":"korean"}
 
@@ -64,18 +62,6 @@ def make_translation_input_from_dataset(data,
                                      tgt=lang_dict[tgt],
                                      text=data[src],
                                      term_dict=data["term_dict"])
-
-#   if "term_dict" not in data.keys() or not len(data["term_dict"]) or data["term_dict"] is None:
-#     template=make_translation_prompt(template=template_wo_term_dict,
-#                                      src=lang_dict[src],
-#                                      tgt=lang_dict[tgt],
-#                                      text=data[src])
-#   else:
-#     template=make_translation_prompt(template=template_w_term_dict,
-#                                      src=lang_dict[src],
-#                                      tgt=lang_dict[tgt],
-#                                      text=data[src],
-#                                      term_dict=data["term_dict"])
 
   if output:
       template=template+data[tgt]+tokenizer.eos_token
@@ -150,3 +136,47 @@ def prepare_translation_dataset(raw_dataset_path,term_dict_path):
     dataset=Dataset.from_pandas(merged_df)
     print("Dataset prepared")
     return dataset
+
+
+def pair_sent_terms(data, glossary_template: str, glossary_tags: list[str, str]):
+
+    lang_dict={"korean":"korean","ko":"korean","kor":"korean","eng":"english","english":"english","en":"english"}
+    src = lang_dict[data["src"]]
+    tgt = lang_dict[data["tgt"]]
+    
+    splited_sents=[]
+    paras=data[src].split("\n") #split text into paragraphs based on linebreak to keep its original format.
+    
+    for para in paras:
+        if para!="":
+            if src=="korean":
+                temp_sents=[s.text for s in kiwi.split_into_sents(para)]
+            else:
+                temp_sents=sent_tokenize(para)
+            if idx<len(paras)-1:
+                temp_sents[-1]+="\n" #keep linebreak
+            splited_sents.extend(temp_sents)
+        else:
+            splited_sents[-1]+="\n"
+
+    sent2terms = []
+    term_dict = data.get("term_dict", "")
+    if len(term_dict):
+        term_dict = ast.literal_eval(term_dict)
+        for s in splited_sents:
+            new_sent_parts = []
+            for k, v in term_dict.items():
+                if k in s:
+                    new_sent_parts.append(glossary_template.format(k, v))
+
+            if len(new_sent_parts):
+                new_s = s + glossary_tags[0] + ','.join(new_sent_parts) + glossary_tags[1]
+            else:
+                new_s=s
+            sent2terms.append(new_s)
+    else:
+        # Handle case of empty term_dict (e.g., directly append sentences)
+        for s in splited_sents:
+            sent2terms.append(s)
+
+    return {"sent2terms":"".join(sent2terms)}
