@@ -29,7 +29,7 @@ def load_tokenizer(base_model_path,additional_special_tokens:list=None):
     ## padding with eos_token might make repetiton in inference.
     tokenizer.pad_token=tokenizer.unk_token
 
-  print("pad_token :" tokenizer.pad_token)
+  print("pad_token :", tokenizer.pad_token)
 
   tokenizer.padding_side="right"
   return tokenizer
@@ -58,17 +58,17 @@ def load_model(base_model_path,
 def load_and_prepare_dataset(tokenizer,         
                             seed,
                             max_len,
-                            template_wo_term_dict:str=None,
-                            template_w_term_dict:str=None,
-                            response_template:str=None,):
+                            translation_template:str=None,
+                            glossary_template:str=None,
+                            glossary_tags:str=None,):
 
     columns=["korean","english","src","tgt"]
     dataset=Dataset.load_from_disk("/nvme_temp/prepared_for_training/training_dataset_20k")
     dataset=dataset.map(make_translation_input_from_dataset,
                         fn_kwargs={"tokenizer":tokenizer,
-                                "template_wo_term_dict":template_wo_term_dict,
-                                  "template_w_term_dict":template_w_term_dict,
-                                  "response_template":response_template
+                                "translation_template":translation_template,
+                                  "glossary_template":glossary_template,
+                                  "glossary_tags":glossary_tags,
                                 }
                                 )
 

@@ -17,31 +17,11 @@ def seed_everything(seed: int = 42):
     torch.backends.cudnn.deterministic = True  # type: ignore
     torch.backends.cudnn.benchmark = True  # type: ignore
 
-def make_translation_prompt(template_wo_term_dict,template_w_term_dict,src,tgt,text,term_dict=None):
-    '''
-ex)
-### Instruction:
-Translate the [src] text into [tgt], referring to the glossary below.
-
-Glossary : [term_dict]
-### Input:
-[text]
-### Translation:
-'''
-
-    if term_dict is None or len(term_dict)==0:
-        template= template_wo_term_dict.format(src,tgt,text)
-
-    else:
-        template= template_w_term_dict.format(src,tgt,term_dict,text)
-
-    return template
-
 def make_translation_input_from_dataset(data,
                                   tokenizer,
-                                  template_wo_term_dict:str=None,
-                                  template_w_term_dict:str=None,
-                                  response_template:str=None,
+                                  translation_template:str=None,
+                                  glossary_template:str=None,
+                                  glossary_tags:list=None,
                                   src:str=None, 
                                   tgt:str=None,
                                   output=True):
@@ -56,17 +36,73 @@ def make_translation_input_from_dataset(data,
     else:
       raise Exception("'src'와 'tgt'가 주어지거나, data의 key로 존재해야합니다.")
 
-  template = make_translation_prompt(template_wo_term_dict=template_wo_term_dict,
-                                     template_w_term_dict=template_w_term_dict,
-                                     src=lang_dict[src],
-                                     tgt=lang_dict[tgt],
-                                     text=data[src],
-                                     term_dict=data["term_dict"])
+  if glossary_template is not None:
+    text=pair_sent_terms(lang=src,
+                        text=data[src],
+                        term_dict=data["term_dict"],
+                        glossary_template=glossary_template,
+                        glossary_tags=glossary_tags,)
+    term_dict=None,
+    template=translation_template.format(src,tgt,text)
+
+  else:
+    text=data["src"]
+    term_dict=data["term_dict"]
+    if len(term_dict) & term_dict is not None:
+        template=translation_template.format(src,tgt,term_dict,text)
+    else:
+        template=translation_template.format(src,tgt,text)
+
 
   if output:
       template=template+data[tgt]+tokenizer.eos_token
 
   return {"text":template}
+
+def pair_sent_terms(lang,
+                    text,
+                    term_dict:str,
+                    glossary_template: str,
+                    glossary_tags: list[str, str]):
+
+    lang_dict={"korean":"korean","ko":"korean","kor":"korean","eng":"english","english":"english","en":"english"}
+    src = lang_dict[lang]
+    
+    splited_sents=[]
+    paras=text.split("\n") #split text into paragraphs based on linebreak to keep its original format.
+    
+    for para in paras:
+        if para!="":
+            if src=="korean":
+                temp_sents=[s.text for s in kiwi.split_into_sents(para)]
+            else:
+                temp_sents=sent_tokenize(para)
+            if idx<len(paras)-1:
+                temp_sents[-1]+="\n" #keep linebreak
+            splited_sents.extend(temp_sents)
+        else:
+            splited_sents[-1]+="\n"
+
+    sent2terms = []
+    if len(term_dict):
+        term_dict = ast.literal_eval(term_dict)
+        for s in splited_sents:
+            new_sent_parts = []
+            for k, v in term_dict.items():
+                if k in s:
+                    new_sent_parts.append(glossary_template.format(k, v))
+
+            if len(new_sent_parts):
+                new_s = s + glossary_tags[0] + ','.join(new_sent_parts) + glossary_tags[1]
+            else:
+                new_s=s
+            sent2terms.append(new_s)
+    else:
+        # Handle case of empty term_dict (e.g., directly append sentences)
+        for s in splited_sents:
+            sent2terms.append(s)
+
+    return sent2terms
 
 
 def add_src_tgt_tag(dataset):
@@ -136,47 +172,3 @@ def prepare_translation_dataset(raw_dataset_path,term_dict_path):
     dataset=Dataset.from_pandas(merged_df)
     print("Dataset prepared")
     return dataset
-
-
-def pair_sent_terms(data, glossary_template: str, glossary_tags: list[str, str]):
-
-    lang_dict={"korean":"korean","ko":"korean","kor":"korean","eng":"english","english":"english","en":"english"}
-    src = lang_dict[data["src"]]
-    tgt = lang_dict[data["tgt"]]
-    
-    splited_sents=[]
-    paras=data[src].split("\n") #split text into paragraphs based on linebreak to keep its original format.
-    
-    for para in paras:
-        if para!="":
-            if src=="korean":
-                temp_sents=[s.text for s in kiwi.split_into_sents(para)]
-            else:
-                temp_sents=sent_tokenize(para)
-            if idx<len(paras)-1:
-                temp_sents[-1]+="\n" #keep linebreak
-            splited_sents.extend(temp_sents)
-        else:
-            splited_sents[-1]+="\n"
-
-    sent2terms = []
-    term_dict = data.get("term_dict", "")
-    if len(term_dict):
-        term_dict = ast.literal_eval(term_dict)
-        for s in splited_sents:
-            new_sent_parts = []
-            for k, v in term_dict.items():
-                if k in s:
-                    new_sent_parts.append(glossary_template.format(k, v))
-
-            if len(new_sent_parts):
-                new_s = s + glossary_tags[0] + ','.join(new_sent_parts) + glossary_tags[1]
-            else:
-                new_s=s
-            sent2terms.append(new_s)
-    else:
-        # Handle case of empty term_dict (e.g., directly append sentences)
-        for s in splited_sents:
-            sent2terms.append(s)
-
-    return {"sent2terms":"".join(sent2terms)}

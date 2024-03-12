@@ -105,9 +105,9 @@ def main(args):
     train_dataset=load_and_prepare_dataset(tokenizer=tokenizer,
                                         seed=args.seed,
                                         max_len=args.max_len,
-                                        template_wo_term_dict=TranslationTemplate.template_wo_term_dict,
-                                        template_w_term_dict=TranslationTemplate.template_w_term_dict,
-                                        response_template=TranslationTemplate.response_template)
+                                        translation_template=TranslationTemplate.translation_sent2term,
+                                        glossary_template=TranslationTemplate.glossary_template,
+                                        glossary_tags=TranslationTemplate.glossary_tags,)
 
 
     if local_rank=="0":
