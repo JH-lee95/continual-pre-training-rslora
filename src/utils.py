@@ -7,6 +7,12 @@ from datasets import load_dataset,Dataset,concatenate_datasets
 import jsonlines
 import ipdb
 import json
+from kiwipiepy import Kiwi
+from nltk.tokenize import sent_tokenize
+import ast
+import ipdb
+
+kiwi = Kiwi()
 
 def seed_everything(seed: int = 42):
     random.seed(seed)
@@ -74,8 +80,8 @@ def pair_sent_terms(lang,
     splited_sents=[]
     paras=text.split("\n") #split text into paragraphs based on linebreak to keep its original format.
     
-    for para in paras:
-        if para!="":
+    for idx,para in enumerate(paras):
+        if len(para.strip()):
             if src=="korean":
                 temp_sents=[s.text for s in kiwi.split_into_sents(para)]
             else:
@@ -85,6 +91,7 @@ def pair_sent_terms(lang,
             splited_sents.extend(temp_sents)
         else:
             splited_sents[-1]+="\n"
+            
 
     sent2terms = []
     if len(term_dict):
