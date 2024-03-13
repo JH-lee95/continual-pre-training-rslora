@@ -62,7 +62,6 @@ def load_and_prepare_dataset(tokenizer,
                             glossary_template:str=None,
                             glossary_tags:str=None,):
 
-    columns=["korean","english","src","tgt"]
     dataset=Dataset.load_from_disk("/nvme_temp/prepared_for_training/training_dataset_20k")
     dataset=dataset.map(make_translation_input_from_dataset,
                         fn_kwargs={
@@ -77,16 +76,30 @@ def load_and_prepare_dataset(tokenizer,
     return dataset
 
 
-def load_and_prepare_dataset_cpo(tokenizer,seed,max_len,metric=True):
+def load_and_prepare_dataset_cpo(tokenizer,         
+                            seed,
+                            max_len,
+                            translation_template_wo_term_dict:str=None,
+                            translation_template_w_term_dict:str=None,
+                            glossary_template:str=None,
+                            glossary_tags:str=None,):
 
-    response_template_with_context = "\n### Translation:\n"
- 
-    columns=["korean","english","src","tgt"]
-  
-    # dataset=prepare_translation_dataset("/root/azurestorage/data/번역데이터셋/aligned_dataset/final_dataset/","/root/azurestorage/data/번역데이터셋/aligned_dataset/term_dict_result_dedup.jsonl")    # dataset=Dataset.load_from_disk("/root/azurestorage/data/번역데이터셋/aligned_dataset/final_dataset_with_term_dict")
-    dataset=Dataset.load_from_disk("/nvme_temp/prepared_for_training/cpo_9k")
-    # dataset=dataset.map(make_translation_prompt,fn_kwargs={"tokenizer":tokenizer})
-    # dataset=dataset.filter(lambda x:len(tokenizer.tokenize(x["text"]))<max_len) # to guarantee perfect completion up to eos token,
+    dataset=Dataset.load_from_disk("/nvme_temp/prepared_for_training/cpo_dataset_10k_eval_by_gemba")
+    dataset=dataset.map(make_translation_input_from_dataset,
+                        fn_kwargs={
+                            "tokenizer":tokenizer,
+                            "translation_template_wo_term_dict":template_wo_term_dict,
+                            "translation_template_w_term_dict":template_w_term_dict,
+                            "glossary_template":glossary_template,
+                            "glossary_tags":glossary_tags,
+                            "output":False,
+                              }
+                                )
+
+    dataset=dataset.rename_columns({"text":"prompt"})
+    dataset=dataset.select_columns(["prompt","chosen","reject"])
+
+    return dataset
 
 
     return dataset

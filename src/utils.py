@@ -43,7 +43,7 @@ def make_translation_input_from_dataset(data,
     else:
       raise Exception("'src'와 'tgt'가 주어지거나, data의 key로 존재해야합니다.")
 
-  if glossary_template is not None:
+  if glossary_template is not None and glossary_tags is not None:
     text=pair_sent_terms(lang=src,
                         text=data[src],
                         term_dict=data["term_dict"],
@@ -52,9 +52,9 @@ def make_translation_input_from_dataset(data,
     template=translation_template_wo_term_dict.format(lang_dict[src],lang_dict[tgt],text)
 
   else:
-    text=data["src"]
+    text=data[src]
     term_dict=data["term_dict"]
-    if len(term_dict) & term_dict is not None:
+    if len(term_dict) and term_dict is not None:
         if translation_template_w_term_dict is not None:
             template=translation_template_w_term_dict.format(lang_dict[src],lang_dict[tgt],term_dict,text)
         else:
