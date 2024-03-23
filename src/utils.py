@@ -72,7 +72,7 @@ def pair_sent_terms(lang,
                     text,
                     term_dict:str,
                     glossary_template: str,
-                    glossary_tags: list[str, str]):
+                    glossary_tags: list[str,str],):
 
     lang_dict={"korean":"korean","ko":"korean","kor":"korean","eng":"english","english":"english","en":"english"}
     src = lang_dict[lang]
@@ -97,22 +97,23 @@ def pair_sent_terms(lang,
     if len(term_dict):
         term_dict = ast.literal_eval(term_dict)
         for s in splited_sents:
-            new_sent_parts = []
+            new_sent_parts = {}
             for k, v in term_dict.items():
                 if k in s:
-                    new_sent_parts.append(glossary_template.format(k, v))
+                    new_sent_parts[k]=v
 
             if len(new_sent_parts):
-                new_s = s + glossary_tags[0] + ','.join(new_sent_parts) + glossary_tags[1]
+                new_s = "### Sentence:"+s + "\n" + "### Glossary:" + str(new_sent_parts) +"\n"
             else:
-                new_s=s
+                new_s = "### Sentence:"+s + "\n" + "### Glossary:" + "\n"
             sent2terms.append(new_s)
     else:
         # Handle case of empty term_dict (e.g., directly append sentences)
         for s in splited_sents:
-            sent2terms.append(s)
+            new_s = "### Sentence:"+s + "\n" + "### Glossary:" + "\n"
+            sent2terms.append(new_s)
 
-    return "".join(sent2terms)
+    return "".join(sent2terms).rstrip()
 
 
 def add_src_tgt_tag(dataset):

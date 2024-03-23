@@ -38,7 +38,7 @@ def load_model(base_model_path,
             gradient_checkpointing=False,
             quantization_config=None,
             flash_attn=True,
-            cache_dir="/root/azurestorage/huggingface_cache/models"):
+            cache_dir="/storage/huggingface_cache/models"):
 
     model = AutoModelForCausalLM.from_pretrained(
         base_model_path, 
@@ -47,7 +47,7 @@ def load_model(base_model_path,
         torch_dtype="auto",
         # device_map="cuda",
         attn_implementation="flash_attention_2" if flash_attn else None,
-        cache_dir="/root/azurestorage/huggingface_cache/models",
+        cache_dir="/storage/huggingface_cache/models",
     )
     if gradient_checkpointing:
         model.gradient_checkpointing_enable()
@@ -62,7 +62,7 @@ def load_and_prepare_dataset(tokenizer,
                             glossary_template:str=None,
                             glossary_tags:str=None,):
 
-    dataset=Dataset.load_from_disk("/nvme_temp/prepared_for_training/training_dataset_20k")
+    dataset=Dataset.load_from_disk("/storage/data/번역데이터셋/aligned_dataset/prepared_for_training/training_dataset_20k")
     dataset=dataset.map(make_translation_input_from_dataset,
                         fn_kwargs={
                             "tokenizer":tokenizer,
@@ -84,7 +84,7 @@ def load_and_prepare_dataset_cpo(tokenizer,
                             glossary_template:str=None,
                             glossary_tags:str=None,):
 
-    dataset=Dataset.load_from_disk("/nvme_temp/prepared_for_training/cpo_dataset_10k_eval_by_gemba")
+    dataset=Dataset.load_from_disk("/storage/data/번역데이터셋/aligned_dataset/prepared_for_training/cpo_dataset_10k_eval_by_gemba")
     dataset=dataset.map(make_translation_input_from_dataset,
                         fn_kwargs={
                             "tokenizer":tokenizer,

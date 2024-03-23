@@ -23,7 +23,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     ## directories
-    parser.add_argument("--base_dir",type=str,default="/root/azurestorage/models",help="base directory to save logs and checkpoints")
+    parser.add_argument("--base_dir",type=str,default="/storage/models",help="base directory to save logs and checkpoints")
     parser.add_argument("--base_model_dir",type=str,required=True,help="local or huggingface hub directory of base model")
     parser.add_argument("--ckpt_dir",type=str,default=None)
     parser.add_argument("--mlflow_dir",type=str, default="mlruns")
@@ -112,7 +112,9 @@ def main(args):
 
 
     if local_rank=="0":
-        print("-------example-------\n",train_dataset[random.randint(0,len(train_dataset))]["text"])
+        for data in  train_dataset.select(random.randint(10,len(train_dataset))):
+            print("-------example-------\n",data["text"])
+        # print("-------example-------\n",train_dataset[random.randint(0,len(train_dataset))]["text"])
     # train_dataset=load_and_prepare_dataset(tokenizer)
     
     if len(tokenizer)!=int(model.config.vocab_size):
@@ -141,7 +143,9 @@ def main(args):
         bf16= True,
         # run_name=args.expr_desc,
         # metric_for_best_model="eval_loss",
-       ddp_find_unused_parameters=False,
+    #    ddp_find_unused_parameters=False,
+        optim="galore_adamw_8bit",
+        optim_target_modules=["attn", "mlp"],
         # torch_compile=True,
                         )
     training_arguments=training_arguments.set_dataloader(train_batch_size=args.batch_size,
@@ -169,7 +173,7 @@ def main(args):
     args=training_arguments,
     model=model,
     tokenizer=tokenizer,
-    optimizers=(optimizer,scheduler),
+    # optimizers=(optimizer,scheduler),
     train_dataset=train_dataset,
     # eval_dataset=eval_dataset,
     data_collator=collator,
