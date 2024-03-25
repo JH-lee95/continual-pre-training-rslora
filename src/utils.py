@@ -112,8 +112,8 @@ def pair_sent_terms(lang,
     else:
         # Handle case of empty term_dict (e.g., directly append sentences)
         for s in splited_sents:
-            new_s = "### Sentence:"+s + "\n" + "### Glossary:" + "\n"
-            new_s = "### Sentence:"+s + "\n"
+            # new_s = "### Sentence:"+s + "\n" + "### Glossary:" + "\n"
+            new_s = "### Sentence:"+ s + "\n"
             sent2terms.append(new_s)
 
     return "".join(sent2terms).rstrip()
