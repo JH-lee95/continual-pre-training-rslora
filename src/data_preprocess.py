@@ -14,24 +14,26 @@ import ipdb
 
 kiwi = Kiwi()
 
-def seed_everything(seed: int = 42):
-    random.seed(seed)
-    np.random.seed(seed)
-    os.environ["PYTHONHASHSEED"] = str(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)  # type: ignore
-    torch.backends.cudnn.deterministic = True  # type: ignore
-    torch.backends.cudnn.benchmark = True  # type: ignore
+def formatting_prompt_func(template:str,*args:str):
+  '''
+  Template can be like ;
+  ### Input :
+  {}
+  ### Output :
+  {}
+  '''
+
+  return template.format(*args)
+
 
 def make_translation_input_from_dataset(data,
                                   tokenizer,
-                                  translation_template_wo_term_dict:str=None,
-                                  translation_template_w_term_dict:str=None,
-                                  glossary_template:str=None,
-                                  glossary_tags:list=None,
+                                  translation_template,
                                   src:str=None, 
                                   tgt:str=None,
-                                  output=True):
+                                  return_output=True,
+                                  **kwargs
+                                  ):
 
   lang_dict={"korean":"Korean","english":"English","ko":"Korean","eng":"English","en":"English"}
   src_tgt_dict={"en":"english","eng":"english","english":"english","ko":"korean","kor":"korean","korean":"korean"}
@@ -43,27 +45,18 @@ def make_translation_input_from_dataset(data,
     else:
       raise Exception("'src'와 'tgt'가 주어지거나, data의 key로 존재해야합니다.")
 
-  if glossary_template is not None and glossary_tags is not None:
+  if glossary_template is not None and sentence_template is not None:
     text=pair_sent_terms(lang=src,
                         text=data[src],
                         term_dict=data["term_dict"],
                         glossary_template=glossary_template,
-                        glossary_tags=glossary_tags,)
-    template=translation_template_wo_term_dict.format(lang_dict[src],lang_dict[tgt],text)
+                        sentence_template=sentence_template,)
+    template=formatting_prompt_func(translation_template,lang_dict[src],lang_dict[tgt],text)
 
   else:
-    text=data[src]
-    term_dict=data["term_dict"]
-    if len(term_dict) and term_dict is not None:
-        if translation_template_w_term_dict is not None:
-            template=translation_template_w_term_dict.format(lang_dict[src],lang_dict[tgt],term_dict,text)
-        else:
-            raise "translation_template_w_term_dict is not given."
-    else:
-        template=translation_template_wo_term_dict.format(lang_dict[src],lang_dict[tgt],text)
+    template=formatting_prompt_func(translation_template,lang_dict[src],lang_dict[tgt],data[src])
 
-
-  if output:
+  if return_output:
       template=template+data[tgt]+tokenizer.eos_token
       
   return {"text":template}
@@ -72,7 +65,8 @@ def pair_sent_terms(lang,
                     text,
                     term_dict:str,
                     glossary_template: str,
-                    glossary_tags: list[str,str],):
+                    sentence_template: str,
+                    ):
 
     lang_dict={"korean":"korean","ko":"korean","kor":"korean","eng":"english","english":"english","en":"english"}
     src = lang_dict[lang]
@@ -103,17 +97,17 @@ def pair_sent_terms(lang,
                     new_sent_parts[k]=v
 
             if len(new_sent_parts):
-                new_s = "### Sentence:"+s + "\n" + "### Glossary:" + str(new_sent_parts) +"\n"
+                new_s = f"{sentence_template}{s}\n{glossary_template}{str(new_sent_parts)}\n"
             else:
                 # new_s = "### Sentence:"+s + "\n" + "### Glossary:" + "\n"
-                new_s = "### Sentence:"+s + "\n"
+                new_s=f"{sentence_template}{s}\n"
 
             sent2terms.append(new_s)
     else:
         # Handle case of empty term_dict (e.g., directly append sentences)
         for s in splited_sents:
             # new_s = "### Sentence:"+s + "\n" + "### Glossary:" + "\n"
-            new_s = "### Sentence:"+ s + "\n"
+            new_s = f"{sentence_template}{s}\n"
             sent2terms.append(new_s)
 
     return "".join(sent2terms).rstrip()

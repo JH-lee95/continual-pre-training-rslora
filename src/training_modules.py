@@ -1,24 +1,91 @@
 from transformers import (
-  AutoModelForCausalLM, 
-  AutoTokenizer, 
   BitsAndBytesConfig,
+  TrainingArguments,
+    Trainer,
     get_cosine_with_hard_restarts_schedule_with_warmup,
-    get_cosine_schedule_with_warmup,
     AdamW,
+    DefaultDataCollator,
   )
 import bitsandbytes as bnb
-import os, warnings,sys
-from datasets import load_dataset,Dataset,concatenate_datasets
-import torch
+from peft import LoraConfig, PeftModel, prepare_model_for_kbit_training, get_peft_model
+import os, platform, warnings,sys
+from trl import SFTTrainer,DataCollatorForCompletionOnlyLM
+import argparse
+import random
 from utils import *
 import ipdb
-import torch.nn as nn
+from prettytable import PrettyTable
+import mlflow
+from training_modules import *
+from translation_template import TranslationTemplate
+
+class CreateTrainer():
+  def __init__(self,args):
+    self.args=args
+    self._set_training_arguments()
+
+  def _set_training_arguments(self):
+    self.training_arguments = TrainingArguments(output_dir= args.output_dir,
+        # fp16= True,
+        bf16= True,
+        # run_name=args.expr_desc,
+        # metric_for_best_model="eval_loss",
+       ddp_find_unused_parameters=False,
+        # torch_compile=True,
+                        )
+    self.training_arguments=self.training_arguments.set_dataloader(train_batch_size=args.train_batch_size,
+                                                             eval_batch_size=args.eval_batch_size,
+                                                             pin_memory=True,
+                                                             num_workers=args.num_workers,
+                                                             sampler_seed=args.seed
+                                                            )
+    self.training_arguments=self.training_arguments.set_training(
+        learning_rate= args.learning_rate,
+        batch_size=args.train_batch_size,
+        weight_decay=args.weight_decay,
+        num_epochs=args.num_epochs,
+        gradient_accumulation_steps=args.gradient_accumulation_steps,
+        seed=args.seed,
+        )
+    self.training_arguments=self.training_arguments.set_logging(strategy="steps",steps=args.logging_steps,report_to=["mlflow"])
+    self.training_arguments=self.training_arguments.set_save(strategy="steps",steps=args.eval_steps,total_limit=args.save_total_limit)
+
+    if self.args.eval:
+          training_arguments=training_arguments.set_evaluate(strategy="steps", batch_size=args.eval_batch_size,steps=args.eval_steps,delay=0)
+
+
+  def create_trainer_sft(self,model,tokenizer,optimizer,scheduler,train_dataset,eval_dataset,peft_config=None,response_template=None,data_collator=None):
+
+    if response_template is not None:
+      response_template_with_context=f"\n{response_template}\n"
+      response_template_ids = tokenizer.encode(response_template_with_context, add_special_tokens=False)[2:]
+      data_collator=DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
+    else:
+      if data_collator is None:
+        data_collator=DefaultDataCollator()
+
+    trainer = SFTTrainer(
+    args=self.training_arguments,
+    model=model,
+    tokenizer=tokenizer,
+    optimizers=(optimizer,scheduler),
+    train_dataset=train_dataset,
+    eval_dataset=eval_dataset if self.args.eval else None,
+    data_collator=data_collator,
+    peft_config=peft_config,
+    max_seq_length= args.max_seq_length,
+    dataset_text_field=args.dataset_text_field,
+    )
+
+    return trainer
+
+  def create_trainer_basic(self):
+    pass
 
 
 def load_tokenizer(base_model_path,additional_special_tokens:list=None):
   """
   base_model_path : path or name of pretrained model
-  chat_template : jinja chat template
   """
   tokenizer = AutoTokenizer.from_pretrained(base_model_path,trust_remote_code=True)
 
@@ -34,15 +101,16 @@ def load_tokenizer(base_model_path,additional_special_tokens:list=None):
   return tokenizer
 
 
-def load_model(base_model_path, 
+def load_model(base_model_path,
             gradient_checkpointing=False,
             quantization_config=None,
             flash_attn=True,
-            cache_dir="/azurestorage/huggingface_cache/models"):
+            cache_dir="/azurestorage/huggingface_cache/models",
+            ):
 
     model = AutoModelForCausalLM.from_pretrained(
-        base_model_path, 
-        trust_remote_code=True, 
+        base_model_path,
+        trust_remote_code=True,
         use_cache=False if gradient_checkpointing else True, # use_cache is incompatible with gradient_checkpointing
         torch_dtype="auto",
         # device_map="cuda",
@@ -54,97 +122,78 @@ def load_model(base_model_path,
     return model
 
 
-def load_and_prepare_dataset(tokenizer,         
-                            seed,
-                            max_len,
-                            translation_template_wo_term_dict:str=None,
-                            translation_template_w_term_dict:str=None,
-                            glossary_template:str=None,
-                            glossary_tags:str=None,):
-
-                                    
-    dataset=Dataset.load_from_disk("/azurestorage/data/translation_data/alinged_dataset/prepared_for_training/training_dataset_20k")
-    dataset=dataset.map(make_translation_input_from_dataset,
-                        fn_kwargs={
-                            "tokenizer":tokenizer,
-                            "translation_template_wo_term_dict":translation_template_wo_term_dict,
-                            "translation_template_w_term_dict":translation_template_w_term_dict,
-                            "glossary_template":glossary_template,
-                            "glossary_tags":glossary_tags,
-                              },
-                             load_from_cache_file=False)
-
-    return dataset
-
-
-def load_and_prepare_dataset_cpo(tokenizer,         
-                            seed,
-                            max_len,
-                            translation_template_wo_term_dict:str=None,
-                            translation_template_w_term_dict:str=None,
-                            glossary_template:str=None,
-                            glossary_tags:str=None,):
-
-    dataset=Dataset.load_from_disk("/azurestorage/data/translation_data/aligned_dataset/prepared_for_training/cpo_dataset_10k_eval_by_gemba")
-    dataset=dataset.map(make_translation_input_from_dataset,
-                        fn_kwargs={
-                            "tokenizer":tokenizer,
-                            "translation_template_wo_term_dict":template_wo_term_dict,
-                            "translation_template_w_term_dict":template_w_term_dict,
-                            "glossary_template":glossary_template,
-                            "glossary_tags":glossary_tags,
-                            "output":False,
-                              }
-                                )
-
-    dataset=dataset.rename_columns({"text":"prompt"})
-    dataset=dataset.select_columns(["prompt","chosen","reject"])
-
-    return dataset
-
-
-    return dataset
-
-
 def load_optimizer_scheduler(model,
-                        learning_rate, 
-                        weight_decay,
-                        total_update_steps, 
-                        warmup_ratio,   
-                        quantize=True,  
-                        **kwargs
+                        optimizer_name:str,
+                        scheduler_name:str,
+                        total_update_steps:int,
+                        warmup_ratio:float,
+                        optimizer_kwargs:dict=None, # ex) {"lr":1e-5,"weight_decay":0.01}
+                        scheduler_kwargs:dict=None, # ex) {"num_cycles":0.3}
                         ):
 
-    if quantize:
-        # optimizer = bnb.optim.Adam8bit(params=filter(lambda x:x.requires_grad,model.parameters()), 
-        #                             lr=learning_rate, 
-        #                             weight_decay=weight_decay,
-        #                             )
+    params=filter(lambda x:x.requires_grad,model.parameters())
+                  
 
-        optimizer= bnb.optim.PagedAdam8bit(params=filter(lambda x:x.requires_grad,model.parameters()), 
-                                    lr=learning_rate, 
-                                    weight_decay=weight_decay,
-                                    )
+    if optimizer_name=="AdamW":
+        optimizer=AdamW(params=params,
+                        **optimizer_kwargs,
+                        )
+
+    elif optimizer_name=="Adam8bit":
+        optimizer = bnb.optim.Adam8bit(params=params,
+                        **optimizer_kwargs,
+                        )
 
         for module in model.modules():
             if isinstance(module, torch.nn.Embedding):
                 bnb.optim.GlobalOptimManager.get_instance().register_module_override(
                     module, 'weight', {'optim_bits': 32}
-                )         
-    else:
-        optimizer=AdamW(params=filter(lambda x:x.requires_grad,model.parameters()),
-                        lr=learning_rate,
-                        weight_decay=weight_decay
+                )
+
+    elif optimizer_name=="PagedAdam8bit":
+        optimizer = bnb.optim.PagedAdam8bit(params=params,
+                        **optimizer_kwargs,
                         )
 
+        for module in model.modules():
+            if isinstance(module, torch.nn.Embedding):
+                bnb.optim.GlobalOptimManager.get_instance().register_module_override(
+                    module, 'weight', {'optim_bits': 32}
+                )
 
-    scheduler=get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
-                                                                num_warmup_steps=total_update_steps*warmup_ratio,
-                                                                num_cycles=0.3,
-                                                                num_training_steps=total_update_steps)
+    if scheduler_name=="cosine_with_hard_restarts_schedule_with_warmup"
 
-    # scheduler=get_cosine_schedule_with_warmup(optimizer,
-    #                                         num_warmup_steps=total_update_steps*warmup_ratio,
-    #                                         num_cycles=0.3,
-    #                                         num_training_steps=total_update_steps)
+      scheduler=get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
+                                                                  num_warmup_steps=total_update_steps*warmup_ratio,
+                                                                  num_training_steps=total_update_steps,
+                                                                  **scheduler_kwargs)
+    elif scheduler_name=="cosine_schedule_with_warmup"
+
+      scheduler=get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
+                                                                  num_warmup_steps=total_update_steps*warmup_ratio,
+                                                                  num_training_steps=total_update_steps,
+                                                                  **scheduler_kwargs)
+                                         
     return optimizer,scheduler
+
+
+def load_and_prepare_dataset(dataset=None,dataset_dir:str=None,preprocess_func=None,**kwargs):
+  '''
+  preprocess_func : define your own preprocessing function. This sholud take dataset object as its argument
+  '''
+
+  if dataset is None and dataset_dir is None:
+    raise "Either dataset or dataset_dir should be given"
+  
+  if dataset_dir is not None:
+    try:
+      dataset=load_datasets(dataset_dir)
+      print("load dataset from huggingface hub")
+    except:
+      dataset=Dataset.load_from_disk(dataset_dir)
+      print("load dataset from local disk")
+
+  if preprocess_func is not None:
+    dataset=dataset.map(preprocess_func,fn_kwargs=kwargs)
+
+    return dataset
