@@ -71,8 +71,8 @@ def load_and_prepare_dataset(tokenizer,
                             "translation_template_w_term_dict":translation_template_w_term_dict,
                             "glossary_template":glossary_template,
                             "glossary_tags":glossary_tags,
-                              }
-                                )
+                              },
+                             load_from_cache_file=False)
 
     return dataset
 

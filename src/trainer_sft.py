@@ -23,7 +23,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     ## directories
-    parser.add_argument("--base_dir",type=str,default="/storage/models",help="base directory to save logs and checkpoints")
+    parser.add_argument("--base_dir",type=str,default="/azurestorage/models",help="base directory to save logs and checkpoints")
     parser.add_argument("--base_model_dir",type=str,required=True,help="local or huggingface hub directory of base model")
     parser.add_argument("--ckpt_dir",type=str,default=None)
     parser.add_argument("--mlflow_dir",type=str, default="mlruns")
@@ -114,9 +114,7 @@ def main(args):
     if local_rank=="0":
         for data in  train_dataset.shuffle().select(range(10)):
             print("-------example-------\n",data["text"])
-        # print("-------example-------\n",train_dataset[random.randint(0,len(train_dataset))]["text"])
-    # train_dataset=load_and_prepare_dataset(tokenizer)
-    
+
     if len(tokenizer)!=int(model.config.vocab_size):
         model.resize_token_embeddings(len(tokenizer))
     assert len(tokenizer)==int(model.config.vocab_size) , 'vocab sizes of the tokenizer and the model should be same'
