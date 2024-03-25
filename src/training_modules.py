@@ -62,7 +62,8 @@ def load_and_prepare_dataset(tokenizer,
                             glossary_template:str=None,
                             glossary_tags:str=None,):
 
-    dataset=Dataset.load_from_disk("/storage/data/번역데이터셋/aligned_dataset/prepared_for_training/training_dataset_20k")
+                                    
+    dataset=Dataset.load_from_disk("/storage/data/translation_data/alinged_dataset/prepared_for_training/training_dataset_20k")
     dataset=dataset.map(make_translation_input_from_dataset,
                         fn_kwargs={
                             "tokenizer":tokenizer,
@@ -84,7 +85,7 @@ def load_and_prepare_dataset_cpo(tokenizer,
                             glossary_template:str=None,
                             glossary_tags:str=None,):
 
-    dataset=Dataset.load_from_disk("/storage/data/번역데이터셋/aligned_dataset/prepared_for_training/cpo_dataset_10k_eval_by_gemba")
+    dataset=Dataset.load_from_disk("/storage/data/translation_data/aligned_dataset/prepared_for_training/cpo_dataset_10k_eval_by_gemba")
     dataset=dataset.map(make_translation_input_from_dataset,
                         fn_kwargs={
                             "tokenizer":tokenizer,

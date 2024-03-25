@@ -112,7 +112,7 @@ def main(args):
 
 
     if local_rank=="0":
-        for data in  train_dataset.select(random.randint(10,len(train_dataset))):
+        for data in  train_dataset.shuffle().select(range(10)):
             print("-------example-------\n",data["text"])
         # print("-------example-------\n",train_dataset[random.randint(0,len(train_dataset))]["text"])
     # train_dataset=load_and_prepare_dataset(tokenizer)
@@ -144,8 +144,8 @@ def main(args):
         # run_name=args.expr_desc,
         # metric_for_best_model="eval_loss",
     #    ddp_find_unused_parameters=False,
-        optim="galore_adamw_8bit",
-        optim_target_modules=["attn", "mlp"],
+        # optim="galore_adamw_8bit",
+        # optim_target_modules=[r".*attn.*", r".*mlp.*"],
         # torch_compile=True,
                         )
     training_arguments=training_arguments.set_dataloader(train_batch_size=args.batch_size,
@@ -173,7 +173,7 @@ def main(args):
     args=training_arguments,
     model=model,
     tokenizer=tokenizer,
-    # optimizers=(optimizer,scheduler),
+    optimizers=(optimizer,scheduler),
     train_dataset=train_dataset,
     # eval_dataset=eval_dataset,
     data_collator=collator,
