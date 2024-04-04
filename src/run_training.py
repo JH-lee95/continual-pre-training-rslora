@@ -1,3 +1,5 @@
+import torch
+import numpy as np
 import os, platform, warnings,sys
 import argparse
 import random
@@ -7,6 +9,7 @@ from prettytable import PrettyTable
 import mlflow
 from training_modules import *
 from translation_template import TranslationTemplate
+from peft import LoraConfig
 
 def seed_everything(seed: int = 42):
     random.seed(seed)
@@ -47,13 +50,13 @@ def parse_args():
     parser.add_argument("--num_save_per_epoch",type=int,default=3,help="number of saving(evaluating) per a epoch")
     
     ## lora config
-    parser.add_argument("--lora",type="bool",help="train wtih lora, full finetuning otherwise",default=True)
+    parser.add_argument("--lora",type=bool,help="train wtih lora, full finetuning otherwise",default=True)
     parser.add_argument("--lora_rank", type=int, default=64)
     parser.add_argument("--lora_alpha", type=int, default=32)
     parser.add_argument("--lora_dropout_rate", type=float, default=0.1)
     parser.add_argument("--lora_bias", default="none")
     parser.add_argument("--lora_task_type", type=str, default="CAUSAL_LM")
-    parser.add_argument("--lora_target_modules", type=str, nargs='*' default=["q_proj", "k_proj", "v_proj", "o_proj","gate_proj","down_proj","up_proj"])
+    parser.add_argument("--lora_target_modules", type=str, nargs='*', default=["q_proj", "k_proj", "v_proj", "o_proj","gate_proj","down_proj","up_proj"])
 
     ## etc
     parser.add_argument("--logging_steps",type=int,default=100)
@@ -103,7 +106,7 @@ def main(args):
               lora_alpha=args.lora_alpha,
               lora_dropout=args.lora_dropout_rate,
               bias=args.lora_bias,
-              task_type=args.lora_task_type
+              task_type=args.lora_task_type,
               target_modules=args.lora_target_modules
           )
     else:
@@ -117,7 +120,7 @@ def main(args):
 
 
     ######################################### dataset ####################################################
-    train_dataset=load_and_prepare_dataset(args.train_dataset_dir,preprocess_func=None)
+    train_dataset=load_and_prepare_dataset(dataset_dir=args.train_dataset_dir,preprocess_func=None)
     if args.eval:
         eval_dataset=load_and_prepare_dataset(args.eval_dataset_dir,preprocess_func=None)
 

@@ -5,19 +5,15 @@ from transformers import (
     get_cosine_with_hard_restarts_schedule_with_warmup,
     AdamW,
     DefaultDataCollator,
+    AutoModelForCausalLM,
+    AutoTokenizer,
   )
+from datasets import load_dataset,Dataset
 import bitsandbytes as bnb
-from peft import LoraConfig, PeftModel, prepare_model_for_kbit_training, get_peft_model
 import os, platform, warnings,sys
 from trl import SFTTrainer,DataCollatorForCompletionOnlyLM
-import argparse
 import random
-from utils import *
-import ipdb
-from prettytable import PrettyTable
-import mlflow
-from training_modules import *
-from translation_template import TranslationTemplate
+
 
 class CreateTrainer():
   def __init__(self,args):
@@ -102,6 +98,7 @@ def load_tokenizer(base_model_path,additional_special_tokens:list=None):
 
 
 def load_model(base_model_path,
+            task_type:str="causal_lm",
             gradient_checkpointing=False,
             quantization_config=None,
             flash_attn=True,
@@ -109,16 +106,24 @@ def load_model(base_model_path,
             **kwargs,
             ):
 
-    model = AutoModelForCausalLM.from_pretrained(
-        base_model_path,
-        trust_remote_code=True,
-        use_cache=False if gradient_checkpointing else True, # use_cache is incompatible with gradient_checkpointing
-        torch_dtype="auto",
-        # device_map="cuda",
-        attn_implementation="flash_attention_2" if flash_attn else None,
-        cache_dir=cache_dir,
-        **kwargs,
-    )
+    if task_type.lower()=="causal_lm":
+      model = AutoModelForCausalLM.from_pretrained(
+          base_model_path,
+          trust_remote_code=True,
+          use_cache=False if gradient_checkpointing else True, # use_cache is incompatible with gradient_checkpointing
+          torch_dtype="auto",
+          # device_map="cuda",
+          attn_implementation="flash_attention_2" if flash_attn else None,
+          cache_dir=cache_dir,
+          **kwargs,
+      )
+
+    elif task_type.lower()=="sequence_classification":
+      pass
+
+    elif task_type.lower()=="question_answering":
+      pass
+
     if gradient_checkpointing:
         model.gradient_checkpointing_enable()
     return model
@@ -163,13 +168,13 @@ def load_optimizer_scheduler(model,
                     module, 'weight', {'optim_bits': 32}
                 )
 
-    if scheduler_name=="cosine_with_hard_restarts_schedule_with_warmup"
+    if scheduler_name=="cosine_with_hard_restarts_schedule_with_warmup":
 
       scheduler=get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
                                                                   num_warmup_steps=total_update_steps*warmup_ratio,
                                                                   num_training_steps=total_update_steps,
                                                                   **scheduler_kwargs)
-    elif scheduler_name=="cosine_schedule_with_warmup"
+    elif scheduler_name=="cosine_schedule_with_warmup":
 
       scheduler=get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
                                                                   num_warmup_steps=total_update_steps*warmup_ratio,
