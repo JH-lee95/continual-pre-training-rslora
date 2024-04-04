@@ -74,7 +74,7 @@ class CreateTrainer():
     data_collator=data_collator,
     peft_config=peft_config,
     max_seq_length= args.max_seq_length,
-    dataset_text_field=args.dataset_text_field,
+    dataset_text_field=args.dataset_text_field if args.dataset_text_field else None,
     )
 
     return trainer
@@ -106,6 +106,7 @@ def load_model(base_model_path,
             quantization_config=None,
             flash_attn=True,
             cache_dir="/azurestorage/huggingface_cache/models",
+            **kwargs,
             ):
 
     model = AutoModelForCausalLM.from_pretrained(
@@ -116,6 +117,7 @@ def load_model(base_model_path,
         # device_map="cuda",
         attn_implementation="flash_attention_2" if flash_attn else None,
         cache_dir=cache_dir,
+        **kwargs,
     )
     if gradient_checkpointing:
         model.gradient_checkpointing_enable()
@@ -177,7 +179,7 @@ def load_optimizer_scheduler(model,
     return optimizer,scheduler
 
 
-def load_and_prepare_dataset(dataset=None,dataset_dir:str=None,preprocess_func=None,**kwargs):
+def load_and_prepare_dataset(dataset=None,dataset_dir:str=None,preprocess_func=None,fn_kwargs:dict=None):
   '''
   preprocess_func : define your own preprocessing function. This sholud take dataset object as its argument
   '''
@@ -194,6 +196,6 @@ def load_and_prepare_dataset(dataset=None,dataset_dir:str=None,preprocess_func=N
       print("load dataset from local disk")
 
   if preprocess_func is not None:
-    dataset=dataset.map(preprocess_func,fn_kwargs=kwargs)
+    dataset=dataset.map(preprocess_func,fn_kwargs=fn_kwargs)
 
     return dataset
