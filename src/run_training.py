@@ -126,7 +126,8 @@ def main(args):
 
     if local_rank=="0":
         for data in train_dataset.shuffle().select(range(10)):
-            print("-------example-------\n",data[args.dataset_text_field])
+            # print("-------example-------\n",data[args.dataset_text_field])
+            print("-------example-------\n",data)
     #######################################################################################################
 
 
@@ -138,7 +139,7 @@ def main(args):
                                                 total_update_steps=total_update_steps,
                                                 warmup_ratio=args.warmup_ratio,
                                                 optimizer_kwargs={"lr":args.learning_rate,"weight_decay":args.weight_decay},
-                                                schduler_kwargs={"num_cycles":0.3},
+                                                scheduler_kwargs={"num_cycles":0.3},
                                                 )
     #######################################################################################################
 

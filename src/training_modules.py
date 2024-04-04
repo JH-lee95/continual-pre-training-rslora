@@ -8,6 +8,7 @@ from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
   )
+import torch
 from datasets import load_dataset,Dataset
 import bitsandbytes as bnb
 import os, platform, warnings,sys
@@ -21,33 +22,33 @@ class CreateTrainer():
     self._set_training_arguments()
 
   def _set_training_arguments(self):
-    self.training_arguments = TrainingArguments(output_dir= args.output_dir,
+    self.training_arguments = TrainingArguments(output_dir= self.args.output_dir,
         # fp16= True,
         bf16= True,
-        # run_name=args.expr_desc,
+        # run_name=self.args.expr_desc,
         # metric_for_best_model="eval_loss",
        ddp_find_unused_parameters=False,
         # torch_compile=True,
                         )
-    self.training_arguments=self.training_arguments.set_dataloader(train_batch_size=args.train_batch_size,
-                                                             eval_batch_size=args.eval_batch_size,
+    self.training_arguments=self.training_arguments.set_dataloader(train_batch_size=self.args.train_batch_size,
+                                                             eval_batch_size=self.args.eval_batch_size,
                                                              pin_memory=True,
-                                                             num_workers=args.num_workers,
-                                                             sampler_seed=args.seed
+                                                             num_workers=self.args.num_workers,
+                                                             sampler_seed=self.args.seed
                                                             )
     self.training_arguments=self.training_arguments.set_training(
-        learning_rate= args.learning_rate,
-        batch_size=args.train_batch_size,
-        weight_decay=args.weight_decay,
-        num_epochs=args.num_epochs,
-        gradient_accumulation_steps=args.gradient_accumulation_steps,
-        seed=args.seed,
+        learning_rate= self.args.learning_rate,
+        batch_size=self.args.train_batch_size,
+        weight_decay=self.args.weight_decay,
+        num_epochs=self.args.num_epochs,
+        gradient_accumulation_steps=self.args.gradient_accumulation_steps,
+        seed=self.args.seed,
         )
-    self.training_arguments=self.training_arguments.set_logging(strategy="steps",steps=args.logging_steps,report_to=["mlflow"])
-    self.training_arguments=self.training_arguments.set_save(strategy="steps",steps=args.eval_steps,total_limit=args.save_total_limit)
+    self.training_arguments=self.training_arguments.set_logging(strategy="steps",steps=self.args.logging_steps,report_to=["mlflow"])
+    self.training_arguments=self.training_arguments.set_save(strategy="steps",steps=self.args.eval_steps,total_limit=self.args.save_total_limit)
 
     if self.args.eval:
-          training_arguments=training_arguments.set_evaluate(strategy="steps", batch_size=args.eval_batch_size,steps=args.eval_steps,delay=0)
+          training_arguments=training_arguments.set_evaluate(strategy="steps", batch_size=self.args.eval_batch_size,steps=self.args.eval_steps,delay=0)
 
 
   def create_trainer_sft(self,model,tokenizer,optimizer,scheduler,train_dataset,eval_dataset,peft_config=None,response_template=None,data_collator=None):
@@ -69,8 +70,8 @@ class CreateTrainer():
     eval_dataset=eval_dataset if self.args.eval else None,
     data_collator=data_collator,
     peft_config=peft_config,
-    max_seq_length= args.max_seq_length,
-    dataset_text_field=args.dataset_text_field if args.dataset_text_field else None,
+    max_seq_length= self.args.max_seq_length,
+    dataset_text_field=self.args.dataset_text_field if self.args.dataset_text_field else None,
     )
 
     return trainer
@@ -195,12 +196,12 @@ def load_and_prepare_dataset(dataset=None,dataset_dir:str=None,preprocess_func=N
   if dataset_dir is not None:
     try:
       dataset=load_datasets(dataset_dir)
-      print("load dataset from huggingface hub")
+      print("---load dataset from huggingface hub---")
     except:
       dataset=Dataset.load_from_disk(dataset_dir)
-      print("load dataset from local disk")
+      print("---load dataset from local disk---")
 
   if preprocess_func is not None:
     dataset=dataset.map(preprocess_func,fn_kwargs=fn_kwargs)
 
-    return dataset
+  return dataset
