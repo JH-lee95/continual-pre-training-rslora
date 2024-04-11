@@ -27,11 +27,11 @@ You are a professional post editor and translator of an accounting firm. Accordi
 selected text : {}
 """# source lang, source text, target lang,target text,source lang, target lang,selected text
 
-    glossary_template="[{}:{}]"
-    glossary_tags=["<glossary>","</glossary>"]
+    sentence_template="### Sentence:"
+    glossary_template="### Glossary:"
+    glossary_tags=["."]
     translation_sent2term='''### Instruction:
-Translate the following {} sentences into {}, referring to the word pairs in the <glossary> if the glossary exsits after each sentence finishes.
-### Source:
+Translate the following {} sentences into {}, referring to the word pairs in the glossary if the glossary exists after each sentence finishes. Do not translate the glossary it self.
 {}
 ### Translation:
 '''
