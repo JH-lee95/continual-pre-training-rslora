@@ -22,13 +22,12 @@ class CreateTrainer():
     self._set_training_arguments()
 
   def _set_training_arguments(self):
-    self.training_arguments = TrainingArguments(output_dir= self.args.output_dir,
+    self.training_arguments = TrainingArguments(
+      output_dir= self.args.output_dir,
         # fp16= True,
         bf16= True,
-        # run_name=self.args.expr_desc,
-        # metric_for_best_model="eval_loss",
+        run_name=self.args.run_name,
        ddp_find_unused_parameters=False,
-        # torch_compile=True,
                         )
     self.training_arguments=self.training_arguments.set_dataloader(train_batch_size=self.args.train_batch_size,
                                                              eval_batch_size=self.args.eval_batch_size,

@@ -3,13 +3,14 @@ import numpy as np
 import os, platform, warnings,sys
 import argparse
 import random
-from data_preprocess import *
 import ipdb
 from prettytable import PrettyTable
 import mlflow
 from training_modules import *
-from translation_template import TranslationTemplate
 from peft import LoraConfig
+from preprocess_func import make_translation_input_from_dataset
+from prompt_template import TranslationTemplate
+from datetime import datetime
 
 def seed_everything(seed: int = 42):
     random.seed(seed)
@@ -64,6 +65,7 @@ def parse_args():
     parser.add_argument("--save_total_limit",type=int,default=10)
     parser.add_argument("--expr_name",type=str,default=None, help="experiment name",required=True)
     parser.add_argument("--expr_desc",type=str,help = "description for experiment", default = None)
+    parser.add_argument("--run_name",type=str,help = "run name", default = None)
     parser.add_argument("--train",type=bool, default=True)
     parser.add_argument("--eval",type=bool, default=False)
     parser.add_argument("--test",type=bool, default=False)
@@ -74,17 +76,15 @@ def parse_args():
 def set_environ(args):
     os.environ["TOKENIZERS_PARALLELISM"]="false"
     os.environ["MLFLOW_EXPERIMENT_NAME"]=args.expr_name
-    os.environ["MLFLOW_TAGS"]='{"mlflow.note.content":' + f'"{args.expr_desc}"' + "}"
+    # os.environ["MLFLOW_RUN_ID"]
+
+    if args.expr_desc is not None:
+        os.environ["MLFLOW_TAGS"]='{"mlflow.note.content":' + f'"{args.expr_desc}"' + "}"
 
 def main(args):
-
     ######################################### General Settings #########################################
-    expr_name=f"{args.expr_name}_v1"
-    args.output_dir= f"{args.base_dir}/trained/{expr_name}"
-
-    while os.path.exists(args.output_dir):
-        expr_name=expr_name.split("_v")[0]+"_v"+str(int(expr_name.split("_v")[-1])+1)
-        args.output_dir= f"{args.base_dir}/trained/{expr_name}"
+    args.run_name=f"{args.run_name}_{datetime.now().strftime('%Y-%m-%d-%H-%M-%s')}"
+    args.output_dir= f"{args.base_dir}/trained/{args.run_name}"
 
     try:
         local_rank=str(os.environ['LOCAL_RANK'])
@@ -118,16 +118,13 @@ def main(args):
     assert len(tokenizer)==int(model.config.vocab_size) , 'vocab sizes of the tokenizer and the model should be same'
     ######################################################################################################
 
-
     ######################################### dataset ####################################################
-    train_dataset=load_and_prepare_dataset(dataset_dir=args.train_dataset_dir,preprocess_func=None)
+    train_dataset=load_and_prepare_dataset(dataset_dir=args.train_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template":TranslationTemplate.prompt_template,"tokenizer":tokenizer})
     if args.eval:
-        eval_dataset=load_and_prepare_dataset(args.eval_dataset_dir,preprocess_func=None)
-
+        eval_dataset=load_and_prepare_dataset(args.eval_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template":TranslationTemplate.prompt_template,"tokenizer":tokenizer})
     if local_rank=="0":
-        for data in train_dataset.shuffle().select(range(10)):
-            # print("-------example-------\n",data[args.dataset_text_field])
-            print("-------example-------\n",data)
+        for data in train_dataset.shuffle().select(range(5)):
+            print("-------example-------\n",data[args.dataset_text_field])
     #######################################################################################################
 
 
@@ -149,7 +146,7 @@ def main(args):
 
     create_trainer=CreateTrainer(args)
     training_arguments=create_trainer.training_arguments
-    trainer=create_trainer.create_trainer_sft(model,tokenizer,optimizer,scheduler,train_dataset,eval_dataset=None,peft_config=peft_config,response_template=TranslationTemplate.response_template)
+    trainer=create_trainer.create_trainer_sft(model,tokenizer,optimizer,scheduler,train_dataset,eval_dataset=None,peft_config=peft_config,response_template=PromptTemplate.response_template)
     ######################################################################################################
     
     print("detected device : ",training_arguments.device)
@@ -167,7 +164,14 @@ def main(args):
       else:
         trainer.train()
 
-    mlflow.end_run()
+    # Logging dataset
+    if local_rank=="0":
+        last_run_id = mlflow.last_active_run().info.run_id
+        with mlflow.start_run(run_id=last_run_id):
+            mlflow.log_input(mlflow.data.from_huggingface(train_dataset,source=args.dataset_dir), context="training dataset")
+            if args.eval:
+                mlflow.log_input(mlflow.data.from_huggingface(eval_dataset,source=args.dataset_dir), context="evaluation dataset")
+
     
 if __name__=="__main__":
   args=parse_args()

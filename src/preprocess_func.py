@@ -28,7 +28,7 @@ def formatting_prompt_func(template:str,*args:str):
 
 def make_translation_input_from_dataset(data,
                                   tokenizer,
-                                  translation_template,
+                                  prompt_template,
                                   src:str=None, 
                                   tgt:str=None,
                                   return_output=True,
@@ -51,10 +51,10 @@ def make_translation_input_from_dataset(data,
                         term_dict=data["term_dict"],
                         glossary_template=glossary_template,
                         sentence_template=sentence_template,)
-    template=formatting_prompt_func(translation_template,lang_dict[src],lang_dict[tgt],text)
+    template=formatting_prompt_func(prompt_template,lang_dict[src],lang_dict[tgt],text)
 
   else:
-    template=formatting_prompt_func(translation_template,lang_dict[src],lang_dict[tgt],data[src])
+    template=formatting_prompt_func(prompt_template,lang_dict[src],lang_dict[tgt],data[src])
 
   if return_output:
       template=template+data[tgt]+tokenizer.eos_token
