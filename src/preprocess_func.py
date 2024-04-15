@@ -90,7 +90,7 @@ def pair_sent_terms(lang,
             
 
     sent2terms = []
-    if len(term_dict):
+    if term_dict is not None and len(term_dict):
         term_dict = ast.literal_eval(term_dict)
         for s in splited_sents:
             new_sent_parts = {}

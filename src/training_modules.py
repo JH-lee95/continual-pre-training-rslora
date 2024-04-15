@@ -186,7 +186,7 @@ def load_optimizer_scheduler(model,
 
 def load_and_prepare_dataset(dataset=None,dataset_dir:str=None,preprocess_func=None,fn_kwargs:dict=None):
   '''
-  preprocess_func : define your own preprocessing function. This sholud take dataset object as its argument
+  preprocess_func : define your own preprocessing function. This sholud take a dataset object as its argument
   '''
 
   if dataset is None and dataset_dir is None:
