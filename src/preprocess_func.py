@@ -29,6 +29,8 @@ def formatting_prompt_func(template:str,*args:str):
 def make_translation_input_from_dataset(data,
                                   tokenizer,
                                   prompt_template,
+                                  glossary_template,
+                                  sentence_template,
                                   src:str=None, 
                                   tgt:str=None,
                                   return_output=True,

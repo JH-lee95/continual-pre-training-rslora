@@ -97,8 +97,11 @@ def main(args):
     model=load_model(args.base_model_dir,gradient_checkpointing=args.gradient_checkpointing,quantization_config=None)
     model.config.use_cache = False # use_cache is only for infernce
 
-    if model.config.max_position_embeddings<args.max_seq_length:
-        model.config.max_position_embeddings=args.max_seq_length
+    # try:
+    #     if model.config.max_position_embeddings<args.max_seq_length:
+    #         model.config.max_position_embeddings=args.max_seq_length
+    # except:
+    #     pass
 
     if args.lora:
       peft_config = LoraConfig(
@@ -119,10 +122,10 @@ def main(args):
     ######################################################################################################
 
     ######################################### dataset ####################################################
-    train_dataset=load_and_prepare_dataset(dataset_dir=args.train_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"template":PromptTemplate.prompt_template,"tokenizer":tokenizer,"glossary_template":PromptTemplate.glossary_template,"sentence_template":sentence_template})
+    train_dataset=load_and_prepare_dataset(dataset_dir=args.train_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template":TranslationTemplate.translation_sent2term,"tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,"sentence_template":TranslationTemplate.sentence_template})
     # train_dataset=train_dataset.shuffle().select(range(100))
     if args.eval:
-        eval_dataset=load_and_prepare_dataset(args.eval_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"template":PromptTemplate.prompt_template,"tokenizer":tokenizer,"glossary_template":PromptTemplate.glossary_template,"sentence_template":sentence_template})
+        eval_dataset=load_and_prepare_dataset(args.eval_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template":TranslationTemplate.translation_sent2term,"tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,"sentence_template":TranslationTemplate.sentence_template})
     if local_rank=="0":
         for data in train_dataset.shuffle().select(range(5)):
             print("-------example-------\n",data[args.dataset_text_field])
@@ -147,7 +150,7 @@ def main(args):
 
     create_trainer=CreateTrainer(args)
     training_arguments=create_trainer.training_arguments
-    trainer=create_trainer.create_trainer_sft(model,tokenizer,optimizer,scheduler,train_dataset,eval_dataset=None,peft_config=peft_config,response_template=PromptTemplate.response_template)
+    trainer=create_trainer.create_trainer_sft(model,tokenizer,optimizer,scheduler,train_dataset,eval_dataset=None,peft_config=peft_config,response_template=TranslationTemplate.response_template)
     ######################################################################################################
     
     print("detected device : ",training_arguments.device)
