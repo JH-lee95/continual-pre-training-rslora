@@ -119,9 +119,10 @@ def main(args):
     ######################################################################################################
 
     ######################################### dataset ####################################################
-    train_dataset=load_and_prepare_dataset(dataset_dir=args.train_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template":TranslationTemplate.prompt_template,"tokenizer":tokenizer})
+    train_dataset=load_and_prepare_dataset(dataset_dir=args.train_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"template":PromptTemplate.prompt_template,"tokenizer":tokenizer,"glossary_template":PromptTemplate.glossary_template,"sentence_template":sentence_template})
+    # train_dataset=train_dataset.shuffle().select(range(100))
     if args.eval:
-        eval_dataset=load_and_prepare_dataset(args.eval_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template":TranslationTemplate.prompt_template,"tokenizer":tokenizer})
+        eval_dataset=load_and_prepare_dataset(args.eval_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"template":PromptTemplate.prompt_template,"tokenizer":tokenizer,"glossary_template":PromptTemplate.glossary_template,"sentence_template":sentence_template})
     if local_rank=="0":
         for data in train_dataset.shuffle().select(range(5)):
             print("-------example-------\n",data[args.dataset_text_field])

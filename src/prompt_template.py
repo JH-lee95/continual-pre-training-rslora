@@ -31,7 +31,7 @@ selected text : {}
     glossary_template="### Glossary:"
     glossary_tags=["."]
     translation_sent2term='''### Instruction:
-Translate the following {} sentences into {}, referring to the word pairs in the glossary if the glossary exists after each sentence finishes. Do not translate the glossary it self.
+Translate the following {} texts into {}, referring to the word pairs in the glossary if the glossary exists after each text finishes. Do not translate the glossary it self.
 {}
 ### Translation:
 '''
