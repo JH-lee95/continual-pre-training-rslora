@@ -26,6 +26,9 @@ class CreateTrainer():
       output_dir= self.args.output_dir,
         # fp16= True,
         bf16= True,
+        optim="galore_adamw_8bit_layerwise",
+        optim_args="rank=64, update_proj_gap=100, scale=0.10",
+        optim_target_modules=[r".*attn.*", r".*mlp.*"],
         run_name=self.args.run_name,
        ddp_find_unused_parameters=False,
                         )
@@ -64,7 +67,7 @@ class CreateTrainer():
     args=self.training_arguments,
     model=model,
     tokenizer=tokenizer,
-    optimizers=(optimizer,scheduler),
+    # optimizers=(optimizer,scheduler),
     train_dataset=train_dataset,
     eval_dataset=eval_dataset if self.args.eval else None,
     data_collator=data_collator,
