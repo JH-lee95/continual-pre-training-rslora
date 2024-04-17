@@ -96,13 +96,7 @@ def main(args):
     ######################################### model & tokenizer #########################################
     model=load_model(args.base_model_dir,gradient_checkpointing=args.gradient_checkpointing,quantization_config=None)
     model.config.use_cache = False # use_cache is only for infernce
-
-    # try:
-    #     if model.config.max_position_embeddings<args.max_seq_length:
-    #         model.config.max_position_embeddings=args.max_seq_length
-    # except:
-    #     pass
-
+ 
     if args.lora:
       peft_config = LoraConfig(
               r=args.lora_rank,
@@ -122,10 +116,10 @@ def main(args):
     ######################################################################################################
 
     ######################################### dataset ####################################################
-    train_dataset=load_and_prepare_dataset(dataset_dir=args.train_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template":TranslationTemplate.translation_sent2term,"tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,"sentence_template":TranslationTemplate.sentence_template})
+    train_dataset=load_and_prepare_dataset(dataset_dir=args.train_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template":TranslationTemplate.translation_template,"tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,"sentence_template":TranslationTemplate.sentence_template})
     # train_dataset=train_dataset.shuffle().select(range(100))
     if args.eval:
-        eval_dataset=load_and_prepare_dataset(args.eval_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template":TranslationTemplate.translation_sent2term,"tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,"sentence_template":TranslationTemplate.sentence_template})
+        eval_dataset=load_and_prepare_dataset(args.eval_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template":TranslationTemplate.translation_template,"tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,"sentence_template":TranslationTemplate.sentence_template})
     if local_rank=="0":
         for data in train_dataset.shuffle().select(range(5)):
             print("-------example-------\n",data[args.dataset_text_field])
@@ -172,9 +166,9 @@ def main(args):
     if local_rank=="0":
         last_run_id = mlflow.last_active_run().info.run_id
         with mlflow.start_run(run_id=last_run_id):
-            mlflow.log_input(mlflow.data.from_huggingface(train_dataset,source=args.dataset_dir), context="training dataset")
+            mlflow.log_input(mlflow.data.from_huggingface(train_dataset,data_files=args.train_dataset_dir), context="training dataset")
             if args.eval:
-                mlflow.log_input(mlflow.data.from_huggingface(eval_dataset,source=args.dataset_dir), context="evaluation dataset")
+                mlflow.log_input(mlflow.data.from_huggingface(eval_dataset,data_files=args.eval_dataset_dir), context="evaluation dataset")
 
     
 if __name__=="__main__":
