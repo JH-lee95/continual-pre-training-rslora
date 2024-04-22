@@ -29,39 +29,39 @@ def formatting_prompt_func(template:str,*args:str):
 def make_translation_input_from_dataset(data,
                                   tokenizer,
                                   prompt_template,
-                                  glossary_template,
-                                  sentence_template,
+                                  glossary_template=None,
+                                  sentence_template=None,
                                   src:str=None, 
                                   tgt:str=None,
                                   return_output=True,
                                   **kwargs
                                   ):
 
-  lang_dict={"korean":"Korean","english":"English","ko":"Korean","eng":"English","en":"English"}
-  src_tgt_dict={"en":"english","eng":"english","english":"english","ko":"korean","kor":"korean","korean":"korean"}
+    lang_dict={"korean":"Korean","english":"English","ko":"Korean","eng":"English","en":"English"}
+    src_tgt_dict={"en":"english","eng":"english","english":"english","ko":"korean","kor":"korean","korean":"korean"}
 
-  if not src and not tgt:
-    if "src" in data.keys() and "tgt" in data.keys():
-      src=src_tgt_dict[data["src"]]
-      tgt=src_tgt_dict[data["tgt"]]
-    else:
-      raise Exception("'src'와 'tgt'가 주어지거나, data의 key로 존재해야합니다.")
+    if not src and not tgt:
+        if "src" in data.keys() and "tgt" in data.keys():
+            src=src_tgt_dict[data["src"]]
+            tgt=src_tgt_dict[data["tgt"]]
+        else:
+            raise Exception("'src'와 'tgt'가 주어지거나, data의 key로 존재해야합니다.")
 
-  if glossary_template is not None and sentence_template is not None:
-    text=pair_sent_terms(lang=src,
-                        text=data[src],
-                        term_dict=data["term_dict"],
-                        glossary_template=glossary_template,
-                        sentence_template=sentence_template,)
-    template=formatting_prompt_func(prompt_template,lang_dict[src],lang_dict[tgt],text)
+    src_text=data[src]
 
-  else:
-    template=formatting_prompt_func(prompt_template,lang_dict[src],lang_dict[tgt],data[src])
+    if data["term_dict"] is not None and len(data["term_dict"]):
+        term_dict = ast.literal_eval(data["term_dict"])
+        term_dict=[f"{k}={v}" for k,v in term_dict.items()]
+        term_dict="\n".join(term_dict)
+        term_dict=f"\n{glossary_template}\n{term_dict}"
+        src_text+=term_dict
 
-  if return_output:
-      template=template+data[tgt]+tokenizer.eos_token
-      
-  return {"text":template}
+    template=formatting_prompt_func(prompt_template,lang_dict[src],lang_dict[tgt],src_text)
+
+    if return_output:
+        template=template+data[tgt]+tokenizer.eos_token
+        
+    return {"text":template}
 
 def pair_sent_terms(lang,
                     text,
