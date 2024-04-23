@@ -12,7 +12,42 @@ from nltk.tokenize import sent_tokenize
 import ast
 import ipdb
 
-kiwi = Kiwi()
+class TextSpliter():
+    def __init__(self,separator=""):
+        self.kiwi=Kiwi()
+        self.separator=separator
+
+    def text2sent(self,language, text, return_string=True):
+        splited_sents = []
+        language = language.lower()
+
+        if language in ["korean", "kor", "ko", "한국어"]:
+            def split_sentences(paragraph):
+                return [sent.text + " " if idx < len(paragraph) - 1 else sent.text # add space after sentence finish
+                        for idx, sent in enumerate(self.kiwi.split_into_sents(paragraph))]
+        elif language in ["english", "eng", "en", "영어"]:
+            def split_sentences(paragraph):
+                return [sent + " " if idx < len(paragraph) - 1 else sent
+                        for idx, sent in enumerate(sent_tokenize(paragraph))]
+        else:
+            raise ValueError("Unsupported language")
+
+        for line in text.splitlines(keepends=True):
+            if line.strip():  # Check if the line is not just whitespace
+                sentences = split_sentences(line.rstrip())  # Remove trailing newline before splitting
+                splited_sents.extend(sentences)
+                splited_sents.append("\n")
+            else:
+                splited_sents.append(line)  # Add the empty line (newline) directly
+
+        if return_string:
+            return self.separator.join(splited_sents).strip()
+        else:
+            return splited_sents
+
+
+text_spliter=TextSpliter()
+
 
 def formatting_prompt_func(template:str,*args:str):
   '''
@@ -52,7 +87,7 @@ def make_translation_input_from_dataset(data,
     formatted_text=None
 
     if text_split:
-        splited_sents=split_sents(lang_dict[src],src_text)
+        splited_sents=text_spliter.text2sent(lang_dict[src],src_text,return_string=False)
         sent2terms = []
         
         if data["term_dict"] is not None and len(data["term_dict"]):
@@ -101,30 +136,6 @@ def formatting_glossary(term_dict,glossary_template):
 
     return glossary_str
 
-def split_sents(lang,
-                text,
-                ):
-
-    lang_dict={"korean":"korean","ko":"korean","kor":"korean","eng":"english","english":"english","en":"english"}
-    src = lang_dict[lang.lower()]
-    
-    splited_sents=[]
-    paras=text.split("\n") #split text into paragraphs based on linebreak to keep its original format.
-    
-    for idx,para in enumerate(paras):
-        if len(para.strip()):
-            if src=="korean":
-                temp_sents=[s.text for s in kiwi.split_into_sents(para)]
-            else:
-                temp_sents=sent_tokenize(para)
-            if idx<len(paras)-1:
-                temp_sents[-1]+="\n" #keep linebreak
-            splited_sents.extend(temp_sents)
-        else:
-            splited_sents[-1]+="\n"
-
-    return splited_sents
-            
 
 def add_src_tgt_tag(dataset):
 
