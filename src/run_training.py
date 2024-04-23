@@ -11,6 +11,7 @@ from peft import LoraConfig
 from preprocess_func import make_translation_input_from_dataset
 from prompt_template import TranslationTemplate
 from datetime import datetime
+from datasets import concatenate_datasets
 
 def seed_everything(seed: int = 42):
     random.seed(seed)
@@ -116,8 +117,16 @@ def main(args):
     ######################################################################################################
 
     ######################################### dataset ####################################################
-    train_dataset=load_and_prepare_dataset(dataset_dir=args.train_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template":TranslationTemplate.translation_template,"tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,"sentence_template":TranslationTemplate.sentence_template})
-    # train_dataset=train_dataset.shuffle().select(range(100))
+    train_dataset=load_and_prepare_dataset(dataset_dir=args.train_dataset_dir).shuffle(seed=args.seed)
+
+    train_dataset_no_text_split=train_dataset.select(range(1,1000))
+    train_dataset_no_text_split=load_and_prepare_dataset(dataset=train_dataset_no_text_split,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template":TranslationTemplate.translation_template,"tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,"sentence_template":TranslationTemplate.sentence_template,"text_split":False})
+
+    train_dataset_text_split=train_dataset.select(range(1000,len(train_dataset)))
+    train_dataset_text_split=load_and_prepare_dataset(dataset=train_dataset_text_split,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template":TranslationTemplate.translation_template,"tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,"sentence_template":TranslationTemplate.sentence_template,"text_split":True})
+
+    train_dataset=concatenate_datasets([train_dataset_no_text_split,train_dataset_text_split]).shuffle(seed=args.seed)
+
     if args.eval:
         eval_dataset=load_and_prepare_dataset(args.eval_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template":TranslationTemplate.translation_template,"tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,"sentence_template":TranslationTemplate.sentence_template})
     if local_rank=="0":

@@ -21,4 +21,7 @@
 # python src/run_training.py --base_model_dir yanolja/EEVE-Korean-10.8B-v1.0 --train_batch_size 4 --expr_desc "no glossary template whenre there is no glossary" --expr_name tmt-eeve-20k-sent2term-new-glossary-template --gradient_accumulation_steps 8 --max_seq_length 4096 --learning_rate 1e-5 --gradient_checkpointing=True --train_dataset_dir /azurestorage/data/translation_data/alinged_dataset/prepared_for_training/training_dataset_10k
 
 
-torchrun --nproc-per-node 2 src/run_training.py --base_model_dir maywell/EEVE-Korean-10.8B-v1.0-16k --train_batch_size 4 --expr_desc "finetuning" --expr_name "Term-MT" --run_name "eeve16k-data10k" --max_seq_length 8192 --learning_rate 1e-5 --train_dataset_dir /data/translation_data/aligned_dataset/prepared_for_training/training_dataset_10k --lora False --gradient_checkpoint=True
+# torchrun --nproc-per-node 2 src/run_training.py --base_model_dir maywell/EEVE-Korean-10.8B-v1.0-16k --train_batch_size 4 --expr_desc "finetuning" --expr_name "Term-MT" --run_name "eeve16k-data10k" --max_seq_length 8192 --learning_rate 1e-5 --train_dataset_dir /data/translation_data/aligned_dataset/prepared_for_training/training_dataset_10k --lora False --gradient_checkpoint=True
+
+
+python src/run_training.py --base_model_dir maywell/EEVE-Korean-10.8B-v1.0-16k --train_batch_size 4 --expr_desc "finetuning" --expr_name "Term-MT" --run_name "eeve16k-data10k-split" --max_seq_length 8192 --learning_rate 1e-5 --train_dataset_dir /azurestorage/data/translation_data/aligned_dataset/prepared_for_training/training_dataset_10k --lora False --gradient_checkpoint=True
