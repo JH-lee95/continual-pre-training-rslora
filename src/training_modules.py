@@ -9,11 +9,14 @@ from transformers import (
     AutoTokenizer,
   )
 import torch
+import torch.nn as nn
 from datasets import load_dataset,Dataset
 import bitsandbytes as bnb
 import os, platform, warnings,sys
 from trl import SFTTrainer,DataCollatorForCompletionOnlyLM
 import random
+
+from galore_torch import GaLoreAdamW, GaLoreAdamW8bit
 
 
 class CreateTrainer():
@@ -26,10 +29,6 @@ class CreateTrainer():
       output_dir= self.args.output_dir,
         # fp16= True,
         bf16= True,
-        optim="galore_adamw_8bit",
-        optim_args="rank=128, update_proj_gap=200, scale=0.25",
-        # optim_args="rank=64, update_proj_gap=100, scale=0.1",
-        optim_target_modules=[r".*attn.*", r".*mlp.*"],
         run_name=self.args.run_name,
        ddp_find_unused_parameters=False,
                         )
@@ -68,7 +67,7 @@ class CreateTrainer():
     args=self.training_arguments,
     model=model,
     tokenizer=tokenizer,
-    # optimizers=(optimizer,scheduler),
+    optimizers=(optimizer,scheduler),
     train_dataset=train_dataset,
     eval_dataset=eval_dataset if self.args.eval else None,
     data_collator=data_collator,
@@ -172,6 +171,35 @@ def load_optimizer_scheduler(model,
                     module, 'weight', {'optim_bits': 32}
                 )
 
+    elif "galore" in scheduler_name:
+        # label layers for galore optimizer
+        target_modules_list = ["attn", "mlp"]
+        # target_modules_list = ["q_proj", "v_proj"]
+        galore_params = []
+        for module_name, module in model.named_modules():
+            if not isinstance(module, nn.Linear):
+                continue
+
+            if not any(target_key in module_name for target_key in target_modules_list):
+                continue
+
+            print('enable GaLore for weights in module: ', module_name)
+            galore_params.append(module.weight)
+
+        id_galore_params = [id(p) for p in galore_params]
+        # make parameters without "rank" to another group
+        regular_params = [p for p in model.parameters() if id(p) not in id_galore_params]
+        # then call galore_adamw
+        param_groups = [{'params': regular_params}, 
+                        {'params': galore_params}.update(optimizer_kwargs)]
+        
+        if scheduler_name=="GaLoreAdamW":
+          optimizer = GaLoreAdamW(param_groups, lr=args.learning_rate)
+        if scheduler_name=="GaLoreAdamW8bit":
+          optimizer = GaLoreAdamW(param_groups, lr=args.learning_rate)
+
+
+
     if scheduler_name=="cosine_with_hard_restarts_schedule_with_warmup":
 
       scheduler=get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
@@ -184,6 +212,8 @@ def load_optimizer_scheduler(model,
                                                                   num_warmup_steps=total_update_steps*warmup_ratio,
                                                                   num_training_steps=total_update_steps,
                                                                   **scheduler_kwargs)
+
+
                                          
     return optimizer,scheduler
 

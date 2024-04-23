@@ -60,6 +60,10 @@ def parse_args():
     parser.add_argument("--lora_task_type", type=str, default="CAUSAL_LM")
     parser.add_argument("--lora_target_modules", type=str, nargs='*', default=["q_proj", "k_proj", "v_proj", "o_proj","gate_proj","down_proj","up_proj"])
 
+    ##galore config
+    parser.add_argument("--galore_update_proj_gap", type=int, default=200)
+    parser.add_argument("--galore_scale", type=float, default=0.25)
+    
     ## etc
     parser.add_argument("--logging_steps",type=int,default=100)
     parser.add_argument("--eval_steps",type=int,default=None)
@@ -137,6 +141,7 @@ def main(args):
 
     ######################################## Optimizer & Scheduler #########################################
     total_update_steps=int((len(train_dataset)*args.num_epochs)/(args.train_batch_size*args.gradient_accumulation_steps*torch.cuda.device_count()))
+    if args.optimizer=
     optimizer,scheduler=load_optimizer_scheduler(model=model,
                                                 optimizer_name=args.optimizer,
                                                 scheduler_name=args.scheduler,
