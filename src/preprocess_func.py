@@ -34,6 +34,7 @@ def make_translation_input_from_dataset(data,
                                   src:str=None, 
                                   tgt:str=None,
                                   return_output=True,
+                                  text_split=True,
                                   **kwargs
                                   ):
 
@@ -48,30 +49,64 @@ def make_translation_input_from_dataset(data,
             raise Exception("'src'와 'tgt'가 주어지거나, data의 key로 존재해야합니다.")
 
     src_text=data[src]
+    formatted_text=None
 
-    if data["term_dict"] is not None and len(data["term_dict"]):
-        term_dict = ast.literal_eval(data["term_dict"])
-        term_dict=[f"{k}={v}" for k,v in term_dict.items()]
-        term_dict="\n".join(term_dict)
-        term_dict=f"\n{glossary_template}\n{term_dict}"
-        src_text+=term_dict
+    if text_split:
+        splited_sents=split_sents(lang_dict[src],src_text)
+        sent2terms = []
+        
+        if data["term_dict"] is not None and len(data["term_dict"]):
+            term_dict = ast.literal_eval(data["term_dict"])
 
-    template=formatting_prompt_func(prompt_template,lang_dict[src],lang_dict[tgt],src_text)
+            for s in splited_sents:
+                new_sent_parts = {}
+                for k, v in term_dict.items():
+                    if k in s:
+                        new_sent_parts[k]=v
+
+                if len(new_sent_parts):
+                    new_sent_parts=formatting_glossary(new_sent_parts,glossary_template)
+                    new_s = f"{sentence_template}\n{s}\n{new_sent_parts}\n"
+                else:
+                    new_s=f"{sentence_template}\n{s}\n"
+
+                sent2terms.append(new_s)
+        else:
+            # Handle case of empty term_dict (e.g., directly append sentences)
+            for s in splited_sents:
+                new_s = f"{sentence_template}\n{s}\n"
+                sent2terms.append(new_s)
+
+        formatted_text="".join(sent2terms).rstrip()
+            
+
+    else:
+        if data["term_dict"] is not None and len(data["term_dict"]):
+            term_dict = ast.literal_eval(data["term_dict"])
+            term_dict=formatting_glossary(term_dict,glossary_template)
+            formatted_text=f"{sentence_template}\n{src_text}\n{term_dict}"
+
+    template=formatting_prompt_func(prompt_template,lang_dict[src],lang_dict[tgt],formatted_text)
 
     if return_output:
         template=template+data[tgt]+tokenizer.eos_token
         
     return {"text":template}
 
-def pair_sent_terms(lang,
-                    text,
-                    term_dict:str,
-                    glossary_template: str,
-                    sentence_template: str,
-                    ):
+
+def formatting_glossary(term_dict,glossary_template):
+    glossary=[f"{k}={v}" for k,v in term_dict.items()]
+    glossary_str="\n".join(glossary)
+    glossary_str=f"{glossary_template}\n{glossary_str}".strip()
+
+    return glossary_str
+
+def split_sents(lang,
+                text,
+                ):
 
     lang_dict={"korean":"korean","ko":"korean","kor":"korean","eng":"english","english":"english","en":"english"}
-    src = lang_dict[lang]
+    src = lang_dict[lang.lower()]
     
     splited_sents=[]
     paras=text.split("\n") #split text into paragraphs based on linebreak to keep its original format.
@@ -87,33 +122,9 @@ def pair_sent_terms(lang,
             splited_sents.extend(temp_sents)
         else:
             splited_sents[-1]+="\n"
+
+    return splited_sents
             
-
-    sent2terms = []
-    if term_dict is not None and len(term_dict):
-        term_dict = ast.literal_eval(term_dict)
-        for s in splited_sents:
-            new_sent_parts = {}
-            for k, v in term_dict.items():
-                if k in s:
-                    new_sent_parts[k]=v
-
-            if len(new_sent_parts):
-                new_s = f"{sentence_template}{s}\n{glossary_template}{str(new_sent_parts)}\n"
-            else:
-                # new_s = "### Sentence:"+s + "\n" + "### Glossary:" + "\n"
-                new_s=f"{sentence_template}{s}\n"
-
-            sent2terms.append(new_s)
-    else:
-        # Handle case of empty term_dict (e.g., directly append sentences)
-        for s in splited_sents:
-            # new_s = "### Sentence:"+s + "\n" + "### Glossary:" + "\n"
-            new_s = f"{sentence_template}{s}\n"
-            sent2terms.append(new_s)
-
-    return "".join(sent2terms).rstrip()
-
 
 def add_src_tgt_tag(dataset):
 
