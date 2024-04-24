@@ -36,7 +36,7 @@ def parse_args():
 
     ## hyper parameters
     parser.add_argument("--seed",type=int,default=42)
-    parser.add_argument("--optimizer",type=str,default="PagedAdam8bit",help='["Adam8bit", "AdamW", "PagedAdam8bit"]')
+    parser.add_argument("--optimizer",type=str,default="PagedAdam8bit",help='["Adam8bit", "AdamW", "PagedAdam8bit","GaLoreAdamW", "GaLoreAdamW8bit"]')
     parser.add_argument("--scheduler",type=str,default="cosine_with_hard_restarts_schedule_with_warmup",help='["cosine_with_hard_restarts_schedule_with_warmup", "cosine_schedule_with_warmup"]')
     parser.add_argument("--learning_rate", type=float, default=1e-5)
     parser.add_argument("--dropout_rate", type=float, default=0.1)
@@ -52,17 +52,20 @@ def parse_args():
     parser.add_argument("--num_save_per_epoch",type=int,default=3,help="number of saving(evaluating) per a epoch")
     
     ## lora config
-    parser.add_argument("--lora",type=bool,help="train wtih lora, full finetuning otherwise",default=True)
-    parser.add_argument("--lora_rank", type=int, default=64)
-    parser.add_argument("--lora_alpha", type=int, default=32)
+    parser.add_argument("--enable_lora",type=bool,help="train wtih lora, full finetuning otherwise",default=False)
+    parser.add_argument("--lora_rank", type=int, default=16)
+    parser.add_argument("--lora_alpha", type=int, default=16)
     parser.add_argument("--lora_dropout_rate", type=float, default=0.1)
     parser.add_argument("--lora_bias", default="none")
     parser.add_argument("--lora_task_type", type=str, default="CAUSAL_LM")
     parser.add_argument("--lora_target_modules", type=str, nargs='*', default=["q_proj", "k_proj", "v_proj", "o_proj","gate_proj","down_proj","up_proj"])
 
-    ##galore config
-    parser.add_argument("--galore_update_proj_gap", type=int, default=200)
+    ## galore config
+    parser.add_argument("--enable_galore", type=bool, help="Whether or not to use galore low rank optimizer.",default=False)
+    parser.add_argument("--galore_rank", type=int, default=16)
+    parser.add_argument("--galore_update_proj_gap", type=int, default=50)
     parser.add_argument("--galore_scale", type=float, default=0.25)
+    parser.add_argument("--galore_proj_type", type=str, default="std")
     
     ## etc
     parser.add_argument("--logging_steps",type=int,default=100)
@@ -102,17 +105,25 @@ def main(args):
     model=load_model(args.base_model_dir,gradient_checkpointing=args.gradient_checkpointing,quantization_config=None)
     model.config.use_cache = False # use_cache is only for infernce
  
-    if args.lora:
-      peft_config = LoraConfig(
-              r=args.lora_rank,
-              lora_alpha=args.lora_alpha,
-              lora_dropout=args.lora_dropout_rate,
-              bias=args.lora_bias,
-              task_type=args.lora_task_type,
-              target_modules=args.lora_target_modules
-          )
+    if args.enable_lora:
+        peft_config = LoraConfig(
+                r=args.lora_rank,
+                lora_alpha=args.lora_alpha,
+                lora_dropout=args.lora_dropout_rate,
+                bias=args.lora_bias,
+                task_type=args.lora_task_type,
+                target_modules=args.lora_target_modules
+            )
+        if local_rank=="0":
+            print("lora enabled")
+            print(f"lora config:\n{peft_config}")
     else:
-      peft_config=None
+        peft_config=None
+
+    if args.enable_galore:
+        galore_kwargs={'rank': args.galore_rank, 'update_proj_gap': args.galore_update_proj_gap, 'scale': args.galore_scale, 'proj_type': args.galore_proj_type}
+    else:
+        galore_kwargs=None
 
     tokenizer=load_tokenizer(args.base_model_dir)
     if len(tokenizer)!=int(model.config.vocab_size):
@@ -156,6 +167,7 @@ def main(args):
                                                 warmup_ratio=args.warmup_ratio,
                                                 optimizer_kwargs={"lr":args.learning_rate,"weight_decay":args.weight_decay},
                                                 scheduler_kwargs={"num_cycles":0.3},
+                                                galore_kwargs=galore_kwargs
                                                 )
     #######################################################################################################
 

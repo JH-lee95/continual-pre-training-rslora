@@ -3,6 +3,7 @@ from transformers import (
   TrainingArguments,
     Trainer,
     get_cosine_with_hard_restarts_schedule_with_warmup,
+    get_cosine_schedule_with_warmup,
     AdamW,
     DefaultDataCollator,
     AutoModelForCausalLM,
@@ -16,6 +17,8 @@ import os, platform, warnings,sys
 from trl import SFTTrainer,DataCollatorForCompletionOnlyLM
 import random
 
+import ipdb
+
 from galore_torch import GaLoreAdamW, GaLoreAdamW8bit
 
 
@@ -25,13 +28,31 @@ class CreateTrainer():
     self._set_training_arguments()
 
   def _set_training_arguments(self):
-    self.training_arguments = TrainingArguments(
-      output_dir= self.args.output_dir,
-        # fp16= True,
-        bf16= True,
-        run_name=self.args.run_name,
-       ddp_find_unused_parameters=False,
-                        )
+
+    if self.args.enable_galore:
+      self.training_arguments = TrainingArguments(
+        output_dir= self.args.output_dir,
+          # fp16= True,
+          bf16= True,
+          optim="galore_adamw_8bit",
+          optim_args="rank=16, update_proj_gap=50, scale=0.1",
+          # optim_args="rank=64, update_proj_gap=100, scale=0.1",
+          optim_target_modules=[r".*attn.*", r".*mlp.*"],
+          run_name=self.args.run_name,
+        ddp_find_unused_parameters=False,
+                          )
+
+    else:
+      self.training_arguments = TrainingArguments(
+        output_dir= self.args.output_dir,
+          # fp16= True,
+          bf16= True,
+          run_name=self.args.run_name,
+        ddp_find_unused_parameters=False,
+                          )
+
+
+
     self.training_arguments=self.training_arguments.set_dataloader(train_batch_size=self.args.train_batch_size,
                                                              eval_batch_size=self.args.eval_batch_size,
                                                              pin_memory=True,
@@ -56,25 +77,39 @@ class CreateTrainer():
   def create_trainer_sft(self,model,tokenizer,optimizer,scheduler,train_dataset,eval_dataset,peft_config=None,response_template=None,data_collator=None):
 
     if response_template is not None:
-      response_template_with_context=f"\n{response_template}\n"
+      response_template_with_context=f"{response_template}\n"
       response_template_ids = tokenizer.encode(response_template_with_context, add_special_tokens=False)[2:]
       data_collator=DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
     else:
       if data_collator is None:
         data_collator=DefaultDataCollator()
 
-    trainer = SFTTrainer(
-    args=self.training_arguments,
-    model=model,
-    tokenizer=tokenizer,
-    optimizers=(optimizer,scheduler),
-    train_dataset=train_dataset,
-    eval_dataset=eval_dataset if self.args.eval else None,
-    data_collator=data_collator,
-    peft_config=peft_config,
-    max_seq_length= self.args.max_seq_length,
-    dataset_text_field=self.args.dataset_text_field if self.args.dataset_text_field else None,
-    )
+    if not self.args.enable_galore:
+      trainer = SFTTrainer(
+      args=self.training_arguments,
+      model=model,
+      tokenizer=tokenizer,
+      optimizers=(optimizer,scheduler),
+      train_dataset=train_dataset,
+      eval_dataset=eval_dataset if self.args.eval else None,
+      data_collator=data_collator,
+      peft_config=peft_config,
+      max_seq_length= self.args.max_seq_length,
+      dataset_text_field=self.args.dataset_text_field if self.args.dataset_text_field else None,
+      )
+    else:
+      trainer = SFTTrainer(
+      args=self.training_arguments,
+      model=model,
+      tokenizer=tokenizer,
+      train_dataset=train_dataset,
+      eval_dataset=eval_dataset if self.args.eval else None,
+      data_collator=data_collator,
+      peft_config=peft_config,
+      max_seq_length= self.args.max_seq_length,
+      dataset_text_field=self.args.dataset_text_field if self.args.dataset_text_field else None,
+      )
+
 
     return trainer
 
@@ -139,17 +174,19 @@ def load_optimizer_scheduler(model,
                         warmup_ratio:float,
                         optimizer_kwargs:dict=None, # ex) {"lr":1e-5,"weight_decay":0.01}
                         scheduler_kwargs:dict=None, # ex) {"num_cycles":0.3}
+                        galore_kwargs:dict=None,
                         ):
 
+    optimizer_name=optimizer_name.lower().strip()
     params=filter(lambda x:x.requires_grad,model.parameters())
                   
 
-    if optimizer_name=="AdamW":
+    if optimizer_name=="adamw":
         optimizer=AdamW(params=params,
                         **optimizer_kwargs,
                         )
 
-    elif optimizer_name=="Adam8bit":
+    elif optimizer_name=="adam8bit":
         optimizer = bnb.optim.Adam8bit(params=params,
                         **optimizer_kwargs,
                         )
@@ -160,7 +197,7 @@ def load_optimizer_scheduler(model,
                     module, 'weight', {'optim_bits': 32}
                 )
 
-    elif optimizer_name=="PagedAdam8bit":
+    elif optimizer_name=="pagedadam8bit":
         optimizer = bnb.optim.PagedAdam8bit(params=params,
                         **optimizer_kwargs,
                         )
@@ -183,35 +220,37 @@ def load_optimizer_scheduler(model,
             if not any(target_key in module_name for target_key in target_modules_list):
                 continue
 
-            print('enable GaLore for weights in module: ', module_name)
             galore_params.append(module.weight)
 
         id_galore_params = [id(p) for p in galore_params]
         # make parameters without "rank" to another group
         regular_params = [p for p in model.parameters() if id(p) not in id_galore_params]
         # then call galore_adamw
-        param_groups = [{'params': regular_params}, 
-                        {'params': galore_params}.update(optimizer_kwargs)]
         
-        if optimizer_name=="GaLoreAdamW":
-          optimizer = GaLoreAdamW(param_groups, lr=args.learning_rate)
-        if optimizer_name=="GaLoreAdamW8bit":
-          optimizer = GaLoreAdamW(param_groups, lr=args.learning_rate)
+        galore_param_dict={'params': galore_params}
+        galore_param_dict.update(galore_kwargs)
 
+        param_groups = [{'params': regular_params}, 
+                        galore_param_dict]
+        
+        if optimizer_name=="galoradamw":
+          optimizer = GaLoreAdamW(param_groups, **optimizer_kwargs)
+        elif optimizer_name=="galoreadamw8bit":
+          optimizer = GaLoreAdamW(param_groups, **optimizer_kwargs)
 
 
     if scheduler_name=="cosine_with_hard_restarts_schedule_with_warmup":
 
       scheduler=get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
-                                                                  num_warmup_steps=total_update_steps*warmup_ratio,
-                                                                  num_training_steps=total_update_steps,
-                                                                  **scheduler_kwargs)
+                                                                num_warmup_steps=total_update_steps*warmup_ratio,
+                                                                num_training_steps=total_update_steps,
+                                                                **scheduler_kwargs)
     elif scheduler_name=="cosine_schedule_with_warmup":
 
-      scheduler=get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
-                                                                  num_warmup_steps=total_update_steps*warmup_ratio,
-                                                                  num_training_steps=total_update_steps,
-                                                                  **scheduler_kwargs)
+      scheduler=get_cosine_schedule_with_warmup(optimizer,
+                                                num_warmup_steps=total_update_steps*warmup_ratio,
+                                                num_training_steps=total_update_steps,
+                                                **scheduler_kwargs)
 
 
                                          
