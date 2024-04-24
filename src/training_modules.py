@@ -171,7 +171,7 @@ def load_optimizer_scheduler(model,
                     module, 'weight', {'optim_bits': 32}
                 )
 
-    elif "galore" in scheduler_name:
+    elif "galore" in optimizer_name:
         # label layers for galore optimizer
         target_modules_list = ["attn", "mlp"]
         # target_modules_list = ["q_proj", "v_proj"]
@@ -193,9 +193,9 @@ def load_optimizer_scheduler(model,
         param_groups = [{'params': regular_params}, 
                         {'params': galore_params}.update(optimizer_kwargs)]
         
-        if scheduler_name=="GaLoreAdamW":
+        if optimizer_name=="GaLoreAdamW":
           optimizer = GaLoreAdamW(param_groups, lr=args.learning_rate)
-        if scheduler_name=="GaLoreAdamW8bit":
+        if optimizer_name=="GaLoreAdamW8bit":
           optimizer = GaLoreAdamW(param_groups, lr=args.learning_rate)
 
 
@@ -228,7 +228,7 @@ def load_and_prepare_dataset(dataset=None,dataset_dir:str=None,preprocess_func=N
   
   if dataset_dir is not None:
     try:
-      dataset=load_datasets(dataset_dir)
+      dataset=load_dataset(dataset_dir)
       print("---load dataset from huggingface hub---")
     except:
       dataset=Dataset.load_from_disk(dataset_dir)

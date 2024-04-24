@@ -14,10 +14,16 @@ import ipdb
 
 class TextSpliter():
     def __init__(self,separator=""):
-        self.kiwi=Kiwi()
+        self.kiwi=Kiwi() # Text Processor for Korean
         self.separator=separator
 
-    def text2sent(self,language, text, return_string=True):
+    def text2sent(self,language, text, return_string=False):
+        '''
+        language : language of text
+        text : text to be splited
+        return_string : return string as a result if True, list otherwise 
+        '''
+        
         splited_sents = []
         language = language.lower()
 
@@ -36,9 +42,9 @@ class TextSpliter():
             if line.strip():  # Check if the line is not just whitespace
                 sentences = split_sentences(line.rstrip())  # Remove trailing newline before splitting
                 splited_sents.extend(sentences)
-                splited_sents.append("\n")
+                splited_sents[-1]=splited_sents[-1].rstrip()+"\n"
             else:
-                splited_sents.append(line)  # Add the empty line (newline) directly
+                splited_sents[-1]=splited_sents[-1].rstrip()+"\n" # Add the empty line (newline) directly
 
         if return_string:
             return self.separator.join(splited_sents).strip()
@@ -63,7 +69,8 @@ def formatting_prompt_func(template:str,*args:str):
 
 def make_translation_input_from_dataset(data,
                                   tokenizer,
-                                  prompt_template,
+                                  prompt_template_w_glossary,
+                                  prompt_template_wo_glossary,
                                   glossary_template=None,
                                   sentence_template=None,
                                   src:str=None, 
@@ -113,15 +120,20 @@ def make_translation_input_from_dataset(data,
                 sent2terms.append(new_s)
 
         formatted_text="".join(sent2terms).rstrip()
-            
-
+        
     else:
         if data["term_dict"] is not None and len(data["term_dict"]):
             term_dict = ast.literal_eval(data["term_dict"])
             term_dict=formatting_glossary(term_dict,glossary_template)
-            formatted_text=f"{sentence_template}\n{src_text}\n{term_dict}"
+            formatted_text=f"{sentence_template}\n{src_text}\n{term_dict}".strip()
+        else:
+            formatted_text=f"{sentence_template}\n{src_text}".strip()
 
-    template=formatting_prompt_func(prompt_template,lang_dict[src],lang_dict[tgt],formatted_text)
+
+    if data["term_dict"] is not None and len(data["term_dict"]):
+        template=formatting_prompt_func(prompt_template_w_glossary,lang_dict[src],lang_dict[tgt],formatted_text)
+    else:
+        template=formatting_prompt_func(prompt_template_wo_glossary,lang_dict[src],lang_dict[tgt],formatted_text)
 
     if return_output:
         template=template+data[tgt]+tokenizer.eos_token
