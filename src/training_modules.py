@@ -35,7 +35,7 @@ class CreateTrainer():
           # fp16= True,
           bf16= True,
           optim="galore_adamw_8bit",
-          optim_args="rank=16, update_proj_gap=50, scale=0.1",
+          optim_args="rank=64, update_proj_gap=50, scale=0.1",
           # optim_args="rank=64, update_proj_gap=100, scale=0.1",
           optim_target_modules=[r".*attn.*", r".*mlp.*"],
           run_name=self.args.run_name,
@@ -77,7 +77,7 @@ class CreateTrainer():
   def create_trainer_sft(self,model,tokenizer,optimizer,scheduler,train_dataset,eval_dataset,peft_config=None,response_template=None,data_collator=None):
 
     if response_template is not None:
-      response_template_with_context=f"{response_template}\n"
+      response_template_with_context=f"\n{response_template}\n"
       response_template_ids = tokenizer.encode(response_template_with_context, add_special_tokens=False)[2:]
       data_collator=DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
     else:
@@ -117,7 +117,7 @@ class CreateTrainer():
     pass
 
 
-def load_tokenizer(base_model_path,additional_special_tokens:list=None):
+def load_tokenizer(base_model_path,additional_special_tokens:list=None,pad_token=None,pad_token_id=None):
   """
   base_model_path : path or name of pretrained model
   """
@@ -129,7 +129,10 @@ def load_tokenizer(base_model_path,additional_special_tokens:list=None):
 
   if not tokenizer.pad_token or tokenizer.pad_token==tokenizer.eos_token:
     ## padding with eos_token might make repetiton in inference.
-    tokenizer.pad_token=tokenizer.unk_token
+    if pad_token is not None:
+      tokenizer.pad_token=pad_token
+    if pad_token_id is not None:
+      tokenizer.pad_token_id=pad_token_id
 
   tokenizer.padding_side="right"
   return tokenizer
