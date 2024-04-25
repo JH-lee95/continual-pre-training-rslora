@@ -80,6 +80,7 @@ class CreateTrainer():
       response_template_with_context=f"\n{response_template}\n"
       response_template_ids = tokenizer.encode(response_template_with_context, add_special_tokens=False)[2:]
       data_collator=DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
+
     else:
       if data_collator is None:
         data_collator=DefaultDataCollator()
@@ -129,6 +130,9 @@ def load_tokenizer(base_model_path,additional_special_tokens:list=None,pad_token
 
   if not tokenizer.pad_token or tokenizer.pad_token==tokenizer.eos_token:
     ## padding with eos_token might make repetiton in inference.
+
+    if tokenizer.unk_token:
+      tokenizer.pad_token=tokenizer.unk_token
     if pad_token is not None:
       tokenizer.pad_token=pad_token
     if pad_token_id is not None:

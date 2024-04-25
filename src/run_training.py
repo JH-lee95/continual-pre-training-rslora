@@ -114,9 +114,6 @@ def main(args):
                 task_type=args.lora_task_type,
                 target_modules=args.lora_target_modules
             )
-        if local_rank=="0":
-            print("lora enabled")
-            print(f"lora config:\n{peft_config}")
     else:
         peft_config=None
 
@@ -125,8 +122,7 @@ def main(args):
     else:
         galore_kwargs=None
 
-    tokenizer=load_tokenizer(args.base_model_dir,pad_token_id=128009)
-    print("pad token :",tokenizer.pad_token)
+    tokenizer=load_tokenizer(args.base_model_dir)
     if len(tokenizer)!=int(model.config.vocab_size):
         model.resize_token_embeddings(len(tokenizer))
     assert len(tokenizer)==int(model.config.vocab_size) , 'vocab sizes of the tokenizer and the model should be same'
@@ -154,7 +150,7 @@ def main(args):
     if args.eval:
         eval_dataset=load_and_prepare_dataset(args.eval_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template":TranslationTemplate.translation_template,"tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,"sentence_template":TranslationTemplate.sentence_template})
     if local_rank=="0":
-        for data in train_dataset.shuffle().select(range(5)):
+        for data in train_dataset.shuffle().select(range(10)):
             print("-------example-------\n",data[args.dataset_text_field])
     #######################################################################################################
 
