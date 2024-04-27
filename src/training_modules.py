@@ -29,28 +29,14 @@ class CreateTrainer():
 
   def _set_training_arguments(self):
 
-    if self.args.enable_galore:
-      self.training_arguments = TrainingArguments(
-        output_dir= self.args.output_dir,
-          # fp16= True,
-          bf16= True,
-          optim="galore_adamw_8bit",
-          optim_args="rank=64, update_proj_gap=50, scale=0.1",
-          # optim_args="rank=64, update_proj_gap=100, scale=0.1",
-          optim_target_modules=[r".*attn.*", r".*mlp.*"],
-          run_name=self.args.run_name,
-        ddp_find_unused_parameters=False,
-                          )
 
-    else:
-      self.training_arguments = TrainingArguments(
-        output_dir= self.args.output_dir,
-          # fp16= True,
-          bf16= True,
-          run_name=self.args.run_name,
-        ddp_find_unused_parameters=False,
-                          )
-
+    self.training_arguments = TrainingArguments(
+      output_dir= self.args.output_dir,
+        # fp16= True,
+        bf16= True,
+        run_name=self.args.run_name,
+      ddp_find_unused_parameters=False,
+                        )
 
 
     self.training_arguments=self.training_arguments.set_dataloader(train_batch_size=self.args.train_batch_size,
@@ -85,31 +71,18 @@ class CreateTrainer():
       if data_collator is None:
         data_collator=DefaultDataCollator()
 
-    if not self.args.enable_galore:
-      trainer = SFTTrainer(
-      args=self.training_arguments,
-      model=model,
-      tokenizer=tokenizer,
-      optimizers=(optimizer,scheduler),
-      train_dataset=train_dataset,
-      eval_dataset=eval_dataset if self.args.eval else None,
-      data_collator=data_collator,
-      peft_config=peft_config,
-      max_seq_length= self.args.max_seq_length,
-      dataset_text_field=self.args.dataset_text_field if self.args.dataset_text_field else None,
-      )
-    else:
-      trainer = SFTTrainer(
-      args=self.training_arguments,
-      model=model,
-      tokenizer=tokenizer,
-      train_dataset=train_dataset,
-      eval_dataset=eval_dataset if self.args.eval else None,
-      data_collator=data_collator,
-      peft_config=peft_config,
-      max_seq_length= self.args.max_seq_length,
-      dataset_text_field=self.args.dataset_text_field if self.args.dataset_text_field else None,
-      )
+    trainer = SFTTrainer(
+    args=self.training_arguments,
+    model=model,
+    tokenizer=tokenizer,
+    optimizers=(optimizer,scheduler),
+    train_dataset=train_dataset,
+    eval_dataset=eval_dataset if self.args.eval else None,
+    data_collator=data_collator,
+    peft_config=peft_config,
+    max_seq_length= self.args.max_seq_length,
+    dataset_text_field=self.args.dataset_text_field if self.args.dataset_text_field else None,
+    )
 
 
     return trainer
@@ -260,6 +233,8 @@ def load_optimizer_scheduler(model,
                                                 **scheduler_kwargs)
 
 
+    print("optimizer : ",optimizer)
+    print("scheduler : ",scheduler)
                                          
     return optimizer,scheduler
 

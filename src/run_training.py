@@ -36,14 +36,14 @@ def parse_args():
 
     ## hyper parameters
     parser.add_argument("--seed",type=int,default=42)
-    parser.add_argument("--optimizer",type=str,default="PagedAdam8bit",help='["Adam8bit", "AdamW", "PagedAdam8bit","GaLoreAdamW", "GaLoreAdamW8bit"]')
+    parser.add_argument("--optimizer",type=str,default="Adam8bit",help='["Adam8bit", "AdamW", "PagedAdam8bit","GaLoreAdamW", "GaLoreAdamW8bit"]')
     parser.add_argument("--scheduler",type=str,default="cosine_with_hard_restarts_schedule_with_warmup",help='["cosine_with_hard_restarts_schedule_with_warmup", "cosine_schedule_with_warmup"]')
     parser.add_argument("--learning_rate", type=float, default=1e-5)
     parser.add_argument("--dropout_rate", type=float, default=0.01)
     parser.add_argument("--max_seq_length", type=int, default=4096)
     parser.add_argument("--weight_decay", type=float, default=0.01)
     parser.add_argument('--train_batch_size', type=int, default=4)
-    parser.add_argument('--eval_batch_size', type=int, default=4)
+    parser.add_argument('--eval_batch_size', type=int, default=4) 
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--num_epochs', type=int, default=1)
     parser.add_argument("--gradient_accumulation_steps",type=int,default=1)
@@ -53,8 +53,8 @@ def parse_args():
     
     ## lora config
     parser.add_argument("--enable_lora",type=bool,help="train wtih lora, full finetuning otherwise",default=False)
-    parser.add_argument("--lora_rank", type=int, default=64)
-    parser.add_argument("--lora_alpha", type=int, default=64)
+    parser.add_argument("--lora_rank", type=int, default=8)
+    parser.add_argument("--lora_alpha", type=int, default=8)
     parser.add_argument("--lora_dropout_rate", type=float, default=0.01)
     parser.add_argument("--lora_bias", default="none")
     parser.add_argument("--lora_task_type", type=str, default="CAUSAL_LM")
@@ -62,7 +62,7 @@ def parse_args():
 
     ## galore config
     parser.add_argument("--enable_galore", type=bool, help="Whether or not to use galore low rank optimizer.",default=False)
-    parser.add_argument("--galore_rank", type=int, default=64)
+    parser.add_argument("--galore_rank", type=int, default=64) 
     parser.add_argument("--galore_update_proj_gap", type=int, default=100)
     parser.add_argument("--galore_scale", type=float, default=0.1)
     parser.add_argument("--galore_proj_type", type=str, default="std")
@@ -122,7 +122,7 @@ def main(args):
     else:
         galore_kwargs=None
 
-    tokenizer=load_tokenizer(args.base_model_dir)
+    tokenizer=load_tokenizer(args.base_model_dir,pad_token="<|reserved_special_token_0|>")
     if len(tokenizer)!=int(model.config.vocab_size):
         model.resize_token_embeddings(len(tokenizer))
     assert len(tokenizer)==int(model.config.vocab_size) , 'vocab sizes of the tokenizer and the model should be same'
