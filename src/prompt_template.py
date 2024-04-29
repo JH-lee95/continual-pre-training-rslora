@@ -14,7 +14,7 @@ Translation:
 
     response_template="Translation:"
     glossary_template="Glossary:"
-    sentence_template="Sentence:"
+    sentence_template="Source:"
 
 
 

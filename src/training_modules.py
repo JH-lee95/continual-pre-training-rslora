@@ -35,6 +35,7 @@ class CreateTrainer():
         # fp16= True,
         bf16= True,
         run_name=self.args.run_name,
+        optim="paged_adamw_8bit",
       ddp_find_unused_parameters=False,
                         )
 
@@ -75,7 +76,7 @@ class CreateTrainer():
     args=self.training_arguments,
     model=model,
     tokenizer=tokenizer,
-    optimizers=(optimizer,scheduler),
+    # optimizers=(optimizer,scheduler),
     train_dataset=train_dataset,
     eval_dataset=eval_dataset if self.args.eval else None,
     data_collator=data_collator,
@@ -166,8 +167,8 @@ def load_optimizer_scheduler(model,
                         **optimizer_kwargs,
                         )
 
-    elif optimizer_name=="adam8bit":
-        optimizer = bnb.optim.Adam8bit(params=params,
+    elif optimizer_name=="adamw8bit":
+        optimizer = bnb.optim.AdamW8bit(params=params,
                         **optimizer_kwargs,
                         )
 
@@ -177,8 +178,8 @@ def load_optimizer_scheduler(model,
                     module, 'weight', {'optim_bits': 32}
                 )
 
-    elif optimizer_name=="pagedadam8bit":
-        optimizer = bnb.optim.PagedAdam8bit(params=params,
+    elif optimizer_name=="pagedadamw8bit":
+        optimizer = bnb.optim.PagedAdamW8bit(params=params,
                         **optimizer_kwargs,
                         )
 

@@ -36,7 +36,7 @@ def parse_args():
 
     ## hyper parameters
     parser.add_argument("--seed",type=int,default=42)
-    parser.add_argument("--optimizer",type=str,default="Adam8bit",help='["Adam8bit", "AdamW", "PagedAdam8bit","GaLoreAdamW", "GaLoreAdamW8bit"]')
+    parser.add_argument("--optimizer",type=str,default="AdamW8bit",help='["AdamW8bit", "AdamW", "PagedAdamW8bit","GaLoreAdamW", "GaLoreAdamW8bit"]')
     parser.add_argument("--scheduler",type=str,default="cosine_with_hard_restarts_schedule_with_warmup",help='["cosine_with_hard_restarts_schedule_with_warmup", "cosine_schedule_with_warmup"]')
     parser.add_argument("--learning_rate", type=float, default=1e-5)
     parser.add_argument("--dropout_rate", type=float, default=0.01)
