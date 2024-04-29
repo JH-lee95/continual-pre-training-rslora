@@ -12,7 +12,48 @@ from nltk.tokenize import sent_tokenize
 import ast
 import ipdb
 
-kiwi = Kiwi()
+class TextSpliter():
+    def __init__(self,separator=""):
+        self.kiwi=Kiwi() # Text Processor for Korean
+        self.separator=separator
+
+    def text2sent(self,language, text, return_string=False):
+        '''
+        language : language of text
+        text : text to be splited
+        return_string : return string as a result if True, list otherwise 
+        '''
+        
+        splited_sents = []
+        language = language.lower()
+
+        if language in ["korean", "kor", "ko", "한국어"]:
+            def split_sentences(paragraph):
+                return [sent.text + " " if idx < len(paragraph) - 1 else sent.text # add space after sentence finish
+                        for idx, sent in enumerate(self.kiwi.split_into_sents(paragraph))]
+        elif language in ["english", "eng", "en", "영어"]:
+            def split_sentences(paragraph):
+                return [sent + " " if idx < len(paragraph) - 1 else sent
+                        for idx, sent in enumerate(sent_tokenize(paragraph))]
+        else:
+            raise ValueError("Unsupported language")
+
+        for line in text.splitlines(keepends=True):
+            if line.strip():  # Check if the line is not just whitespace
+                sentences = split_sentences(line.rstrip())  # Remove trailing newline before splitting
+                splited_sents.extend(sentences)
+                splited_sents[-1]=splited_sents[-1].rstrip()+"\n"
+            else:
+                splited_sents[-1]=splited_sents[-1].rstrip()+"\n" # Add the empty line (newline) directly
+
+        if return_string:
+            return self.separator.join(splited_sents).strip()
+        else:
+            return splited_sents
+
+
+text_spliter=TextSpliter()
+
 
 def formatting_prompt_func(template:str,*args:str):
   '''
@@ -28,12 +69,14 @@ def formatting_prompt_func(template:str,*args:str):
 
 def make_translation_input_from_dataset(data,
                                   tokenizer,
-                                  prompt_template,
+                                  prompt_template_w_glossary,
+                                  prompt_template_wo_glossary,
                                   glossary_template=None,
                                   sentence_template=None,
                                   src:str=None, 
                                   tgt:str=None,
                                   return_output=True,
+                                  text_split=True,
                                   **kwargs
                                   ):
 
@@ -48,71 +91,62 @@ def make_translation_input_from_dataset(data,
             raise Exception("'src'와 'tgt'가 주어지거나, data의 key로 존재해야합니다.")
 
     src_text=data[src]
+    formatted_text=None
+
+    if text_split:
+        splited_sents=text_spliter.text2sent(lang_dict[src],src_text,return_string=False)
+        sent2terms = []
+        
+        if data["term_dict"] is not None and len(data["term_dict"]):
+            term_dict = ast.literal_eval(data["term_dict"])
+
+            for s in splited_sents:
+                new_sent_parts = {}
+                for k, v in term_dict.items():
+                    if k in s:
+                        new_sent_parts[k]=v
+
+                if len(new_sent_parts):
+                    new_sent_parts=formatting_glossary(new_sent_parts,glossary_template)
+                    new_s = f"{sentence_template}\n{s}\n{new_sent_parts}\n"
+                else:
+                    new_s=f"{sentence_template}\n{s}\n"
+
+                sent2terms.append(new_s)
+        else:
+            # Handle case of empty term_dict (e.g., directly append sentences)
+            for s in splited_sents:
+                new_s = f"{sentence_template}\n{s}\n"
+                sent2terms.append(new_s)
+
+        formatted_text="".join(sent2terms).rstrip()
+        
+    else:
+        if data["term_dict"] is not None and len(data["term_dict"]):
+            term_dict = ast.literal_eval(data["term_dict"])
+            term_dict=formatting_glossary(term_dict,glossary_template)
+            formatted_text=f"{sentence_template}\n{src_text}\n{term_dict}".strip()
+        else:
+            formatted_text=f"{sentence_template}\n{src_text}".strip()
+
 
     if data["term_dict"] is not None and len(data["term_dict"]):
-        term_dict = ast.literal_eval(data["term_dict"])
-        term_dict=[f"{k}={v}" for k,v in term_dict.items()]
-        term_dict="\n".join(term_dict)
-        term_dict=f"\n{glossary_template}\n{term_dict}"
-        src_text+=term_dict
-
-    template=formatting_prompt_func(prompt_template,lang_dict[src],lang_dict[tgt],src_text)
+        template=formatting_prompt_func(prompt_template_w_glossary,lang_dict[src],lang_dict[tgt],formatted_text)
+    else:
+        template=formatting_prompt_func(prompt_template_wo_glossary,lang_dict[src],lang_dict[tgt],formatted_text)
 
     if return_output:
         template=template+data[tgt]+tokenizer.eos_token
         
     return {"text":template}
 
-def pair_sent_terms(lang,
-                    text,
-                    term_dict:str,
-                    glossary_template: str,
-                    sentence_template: str,
-                    ):
 
-    lang_dict={"korean":"korean","ko":"korean","kor":"korean","eng":"english","english":"english","en":"english"}
-    src = lang_dict[lang]
-    
-    splited_sents=[]
-    paras=text.split("\n") #split text into paragraphs based on linebreak to keep its original format.
-    
-    for idx,para in enumerate(paras):
-        if len(para.strip()):
-            if src=="korean":
-                temp_sents=[s.text for s in kiwi.split_into_sents(para)]
-            else:
-                temp_sents=sent_tokenize(para)
-            if idx<len(paras)-1:
-                temp_sents[-1]+="\n" #keep linebreak
-            splited_sents.extend(temp_sents)
-        else:
-            splited_sents[-1]+="\n"
-            
+def formatting_glossary(term_dict,glossary_template):
+    glossary=[f"{k}={v}" for k,v in term_dict.items()]
+    glossary_str="\n".join(glossary)
+    glossary_str=f"{glossary_template}\n{glossary_str}".strip()
 
-    sent2terms = []
-    if term_dict is not None and len(term_dict):
-        term_dict = ast.literal_eval(term_dict)
-        for s in splited_sents:
-            new_sent_parts = {}
-            for k, v in term_dict.items():
-                if k in s:
-                    new_sent_parts[k]=v
-
-            if len(new_sent_parts):
-                new_s = f"{sentence_template}{s}\n{glossary_template}{str(new_sent_parts)}\n"
-            else:
-                # new_s = "### Sentence:"+s + "\n" + "### Glossary:" + "\n"
-                new_s=f"{sentence_template}{s}\n"
-
-            sent2terms.append(new_s)
-    else:
-        # Handle case of empty term_dict (e.g., directly append sentences)
-        for s in splited_sents:
-            # new_s = "### Sentence:"+s + "\n" + "### Glossary:" + "\n"
-            new_s = f"{sentence_template}{s}\n"
-            sent2terms.append(new_s)
-
-    return "".join(sent2terms).rstrip()
+    return glossary_str
 
 
 def add_src_tgt_tag(dataset):

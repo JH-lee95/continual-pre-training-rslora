@@ -11,6 +11,7 @@ from peft import LoraConfig
 from preprocess_func import make_translation_input_from_dataset
 from prompt_template import TranslationTemplate
 from datetime import datetime
+from datasets import concatenate_datasets
 
 def seed_everything(seed: int = 42):
     random.seed(seed)
@@ -35,14 +36,14 @@ def parse_args():
 
     ## hyper parameters
     parser.add_argument("--seed",type=int,default=42)
-    parser.add_argument("--optimizer",type=str,default="PagedAdam8bit",help='["Adam8bit", "AdamW", "PagedAdam8bit"]')
+    parser.add_argument("--optimizer",type=str,default="AdamW8bit",help='["AdamW8bit", "AdamW", "PagedAdamW8bit","GaLoreAdamW", "GaLoreAdamW8bit"]')
     parser.add_argument("--scheduler",type=str,default="cosine_with_hard_restarts_schedule_with_warmup",help='["cosine_with_hard_restarts_schedule_with_warmup", "cosine_schedule_with_warmup"]')
     parser.add_argument("--learning_rate", type=float, default=1e-5)
-    parser.add_argument("--dropout_rate", type=float, default=0.1)
+    parser.add_argument("--dropout_rate", type=float, default=0.01)
     parser.add_argument("--max_seq_length", type=int, default=4096)
     parser.add_argument("--weight_decay", type=float, default=0.01)
     parser.add_argument('--train_batch_size', type=int, default=4)
-    parser.add_argument('--eval_batch_size', type=int, default=4)
+    parser.add_argument('--eval_batch_size', type=int, default=4) 
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--num_epochs', type=int, default=1)
     parser.add_argument("--gradient_accumulation_steps",type=int,default=1)
@@ -51,14 +52,21 @@ def parse_args():
     parser.add_argument("--num_save_per_epoch",type=int,default=3,help="number of saving(evaluating) per a epoch")
     
     ## lora config
-    parser.add_argument("--lora",type=bool,help="train wtih lora, full finetuning otherwise",default=True)
-    parser.add_argument("--lora_rank", type=int, default=64)
-    parser.add_argument("--lora_alpha", type=int, default=32)
-    parser.add_argument("--lora_dropout_rate", type=float, default=0.1)
+    parser.add_argument("--enable_lora",type=bool,help="train wtih lora, full finetuning otherwise",default=False)
+    parser.add_argument("--lora_rank", type=int, default=8)
+    parser.add_argument("--lora_alpha", type=int, default=8)
+    parser.add_argument("--lora_dropout_rate", type=float, default=0.01)
     parser.add_argument("--lora_bias", default="none")
     parser.add_argument("--lora_task_type", type=str, default="CAUSAL_LM")
     parser.add_argument("--lora_target_modules", type=str, nargs='*', default=["q_proj", "k_proj", "v_proj", "o_proj","gate_proj","down_proj","up_proj"])
 
+    ## galore config
+    parser.add_argument("--enable_galore", type=bool, help="Whether or not to use galore low rank optimizer.",default=False)
+    parser.add_argument("--galore_rank", type=int, default=64) 
+    parser.add_argument("--galore_update_proj_gap", type=int, default=100)
+    parser.add_argument("--galore_scale", type=float, default=0.1)
+    parser.add_argument("--galore_proj_type", type=str, default="std")
+    
     ## etc
     parser.add_argument("--logging_steps",type=int,default=100)
     parser.add_argument("--eval_steps",type=int,default=None)
@@ -97,31 +105,52 @@ def main(args):
     model=load_model(args.base_model_dir,gradient_checkpointing=args.gradient_checkpointing,quantization_config=None)
     model.config.use_cache = False # use_cache is only for infernce
  
-    if args.lora:
-      peft_config = LoraConfig(
-              r=args.lora_rank,
-              lora_alpha=args.lora_alpha,
-              lora_dropout=args.lora_dropout_rate,
-              bias=args.lora_bias,
-              task_type=args.lora_task_type,
-              target_modules=args.lora_target_modules
-          )
+    if args.enable_lora:
+        peft_config = LoraConfig(
+                r=args.lora_rank,
+                lora_alpha=args.lora_alpha,
+                lora_dropout=args.lora_dropout_rate,
+                bias=args.lora_bias,
+                task_type=args.lora_task_type,
+                target_modules=args.lora_target_modules
+            )
     else:
-      peft_config=None
+        peft_config=None
 
-    tokenizer=load_tokenizer(args.base_model_dir)
+    if args.enable_galore:
+        galore_kwargs={'rank': args.galore_rank, 'update_proj_gap': args.galore_update_proj_gap, 'scale': args.galore_scale, 'proj_type': args.galore_proj_type}
+    else:
+        galore_kwargs=None
+
+    tokenizer=load_tokenizer(args.base_model_dir,pad_token="<|reserved_special_token_0|>")
     if len(tokenizer)!=int(model.config.vocab_size):
         model.resize_token_embeddings(len(tokenizer))
     assert len(tokenizer)==int(model.config.vocab_size) , 'vocab sizes of the tokenizer and the model should be same'
     ######################################################################################################
 
     ######################################### dataset ####################################################
-    train_dataset=load_and_prepare_dataset(dataset_dir=args.train_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template":TranslationTemplate.translation_template,"tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,"sentence_template":TranslationTemplate.sentence_template})
-    # train_dataset=train_dataset.shuffle().select(range(100))
+    train_dataset=load_and_prepare_dataset(dataset_dir=args.train_dataset_dir).shuffle(seed=args.seed)
+
+    train_dataset_no_text_split=train_dataset.select(range(1,1000))
+    train_dataset_no_text_split=load_and_prepare_dataset(dataset=train_dataset_no_text_split,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template_wo_glossary":TranslationTemplate.translation_template_wo_glossary,
+                                                                                                                                                            "prompt_template_w_glossary":TranslationTemplate.translation_template_w_glossary,
+                                                                                                                                                            "tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,
+                                                                                                                                                            "sentence_template":TranslationTemplate.sentence_template,
+                                                                                                                                                            "text_split":False})
+
+    train_dataset_text_split=train_dataset.select(range(1000,len(train_dataset)))
+    train_dataset_text_split=load_and_prepare_dataset(dataset=train_dataset_text_split,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template_wo_glossary":TranslationTemplate.translation_template_wo_glossary,
+                                                                                                                                                            "prompt_template_w_glossary":TranslationTemplate.translation_template_w_glossary,
+                                                                                                                                                            "tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,
+                                                                                                                                                            "sentence_template":TranslationTemplate.sentence_template,
+                                                                                                                                                            "text_split":True})
+
+    train_dataset=concatenate_datasets([train_dataset_no_text_split,train_dataset_text_split]).shuffle(seed=args.seed)
+
     if args.eval:
         eval_dataset=load_and_prepare_dataset(args.eval_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template":TranslationTemplate.translation_template,"tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,"sentence_template":TranslationTemplate.sentence_template})
     if local_rank=="0":
-        for data in train_dataset.shuffle().select(range(5)):
+        for data in train_dataset.shuffle().select(range(10)):
             print("-------example-------\n",data[args.dataset_text_field])
     #######################################################################################################
 
@@ -135,6 +164,7 @@ def main(args):
                                                 warmup_ratio=args.warmup_ratio,
                                                 optimizer_kwargs={"lr":args.learning_rate,"weight_decay":args.weight_decay},
                                                 scheduler_kwargs={"num_cycles":0.3},
+                                                galore_kwargs=galore_kwargs
                                                 )
     #######################################################################################################
 
