@@ -101,23 +101,18 @@ def make_translation_input_from_dataset(data,
             term_dict = ast.literal_eval(data["term_dict"])
 
             for s in splited_sents:
-                new_sent_parts = {}
-                for k, v in term_dict.items():
-                    if k in s:
-                        new_sent_parts[k]=v
-
-                if len(new_sent_parts):
-                    new_sent_parts=formatting_glossary(new_sent_parts,glossary_template)
-                    new_s = f"{sentence_template}\n{s}\n{new_sent_parts}\n"
-                else:
-                    new_s=f"{sentence_template}\n{s}\n"
-
+                new_s = f"{sentence_template}\n{s}\n"
                 sent2terms.append(new_s)
+            term_dict=formatting_glossary(term_dict,glossary_template)
+            sent2terms.append(f"\n{term_dict}".strip())
+
         else:
             # Handle case of empty term_dict (e.g., directly append sentences)
             for s in splited_sents:
                 new_s = f"{sentence_template}\n{s}\n"
                 sent2terms.append(new_s)
+
+        sent2terms[-1]=sent2terms[-1].strip()
 
         formatted_text="".join(sent2terms).rstrip()
         
@@ -128,7 +123,6 @@ def make_translation_input_from_dataset(data,
             formatted_text=f"{sentence_template}\n{src_text}\n{term_dict}".strip()
         else:
             formatted_text=f"{sentence_template}\n{src_text}".strip()
-
 
     if data["term_dict"] is not None and len(data["term_dict"]):
         template=formatting_prompt_func(prompt_template_w_glossary,lang_dict[src],lang_dict[tgt],formatted_text)
