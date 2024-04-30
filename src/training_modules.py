@@ -16,9 +16,8 @@ import bitsandbytes as bnb
 import os, platform, warnings,sys
 from trl import SFTTrainer,DataCollatorForCompletionOnlyLM
 import random
-
+from peft import LoraConfig,get_peft_model
 import ipdb
-
 from galore_torch import GaLoreAdamW, GaLoreAdamW8bit
 
 
@@ -29,17 +28,25 @@ class CreateTrainer():
 
   def _set_training_arguments(self):
 
-
     self.training_arguments = TrainingArguments(
       output_dir= self.args.output_dir,
         # fp16= True,
         bf16= True,
         run_name=self.args.run_name,
-        optim="paged_adamw_8bit",
-      ddp_find_unused_parameters=False,
+        lr_scheduler_kwargs=self.args.scheduler_kwargs,
+        optim_target_modules=[r'*attn*',r'*mlp*'] if self.args.enable_galore else None
+        ddp_find_unused_parameters=False,
                         )
 
 
+    self.training_arguments=self.training_arguments.set_optimizer(name=self.args.optimizer.lower(),
+                                                                  learning_rate=self.args.learning_rate,
+                                                                  weight_decay=self.args.weight_decay,
+                                                                  optim_args=self.args.optim_args,
+                                                                  )
+    self.training_arguments=self.training_arguments.set_lr_scheduler(name=self.args.scheduler.lower(),
+                                                                    num_epochs=self.args.num_epochs,
+                                                                    warmup_ratio=self.args.warmup_ratio)
     self.training_arguments=self.training_arguments.set_dataloader(train_batch_size=self.args.train_batch_size,
                                                              eval_batch_size=self.args.eval_batch_size,
                                                              pin_memory=True,
@@ -47,9 +54,6 @@ class CreateTrainer():
                                                              sampler_seed=self.args.seed
                                                             )
     self.training_arguments=self.training_arguments.set_training(
-        learning_rate= self.args.learning_rate,
-        batch_size=self.args.train_batch_size,
-        weight_decay=self.args.weight_decay,
         num_epochs=self.args.num_epochs,
         gradient_accumulation_steps=self.args.gradient_accumulation_steps,
         seed=self.args.seed,
@@ -61,7 +65,7 @@ class CreateTrainer():
           training_arguments=training_arguments.set_evaluate(strategy="steps", batch_size=self.args.eval_batch_size,steps=self.args.eval_steps,delay=0)
 
 
-  def create_trainer_sft(self,model,tokenizer,optimizer,scheduler,train_dataset,eval_dataset,peft_config=None,response_template=None,data_collator=None):
+  def create_trainer_sft(self,model,tokenizer,train_dataset,eval_dataset,response_template=None,data_collator=None):
 
     if response_template is not None:
       response_template_with_context=f"\n{response_template}\n"
@@ -76,11 +80,9 @@ class CreateTrainer():
     args=self.training_arguments,
     model=model,
     tokenizer=tokenizer,
-    # optimizers=(optimizer,scheduler),
     train_dataset=train_dataset,
     eval_dataset=eval_dataset if self.args.eval else None,
     data_collator=data_collator,
-    peft_config=peft_config,
     max_seq_length= self.args.max_seq_length,
     dataset_text_field=self.args.dataset_text_field if self.args.dataset_text_field else None,
     )
@@ -91,13 +93,52 @@ class CreateTrainer():
   def create_trainer_basic(self):
     pass
 
+def load_model_tokenizer(base_model_path,
+            task_type:str="causal_lm",
+            gradient_checkpointing=False,
+            flash_attn=True,
+            cache_dir="/azurestorage/huggingface_cache/models",
+          additional_special_tokens=None,
+          pad_token=None,
+          pad_token_id=None,
+          **model_kwargs,
+          **tokenizer_kwargs,
+            ):
 
-def load_tokenizer(base_model_path,additional_special_tokens:list=None,pad_token=None,pad_token_id=None):
-  """
-  base_model_path : path or name of pretrained model
-  """
-  tokenizer = AutoTokenizer.from_pretrained(base_model_path,trust_remote_code=True)
+  ##################### set model #######################
+  if task_type.lower()=="causal_lm":
 
+    if self.args.use_unsloth:
+      model, _ = FastLanguageModel.from_pretrained(
+                        model_name = base_model_path # Supports Llama, Mistral - replace this!
+                        dtype=None,
+                        # cache_dir=cache_dir,
+                        **model_kwargs,
+                    )
+
+    else:
+      model = AutoModelForCausalLM.from_pretrained(
+          base_model_path,
+          trust_remote_code=True,
+          use_cache=False if gradient_checkpointing else True, # use_cache is incompatible with gradient_checkpointing
+          torch_dtype="auto",
+          # device_map="cuda",
+          attn_implementation="flash_attention_2" if flash_attn else None,
+          cache_dir=cache_dir,
+          **model_kwargs,
+      )
+
+  elif task_type.lower()=="sequence_classification":
+    pass
+
+  elif task_type.lower()=="question_answering":
+    pass
+
+  if gradient_checkpointing:
+      model.gradient_checkpointing_enable()
+
+  ##################### set tokenizer #######################
+  tokenizer = AutoTokenizer.from_pretrained(base_model_path,trust_remote_code=True,**tokenizer_kwargs)
   ###### set special tokens #####
   if additional_special_tokens is not None:
     tokenizer.add_special_tokens({"additional_special_tokens": additional_special_tokens})
@@ -113,132 +154,13 @@ def load_tokenizer(base_model_path,additional_special_tokens:list=None,pad_token
       tokenizer.pad_token_id=pad_token_id
 
   tokenizer.padding_side="right"
-  return tokenizer
+
+  if len(tokenizer)!=int(model.config.vocab_size):
+      model.resize_token_embeddings(len(tokenizer))
+  assert len(tokenizer)==int(model.config.vocab_size) , 'vocab sizes of the tokenizer and the model should be same'
 
 
-def load_model(base_model_path,
-            task_type:str="causal_lm",
-            gradient_checkpointing=False,
-            quantization_config=None,
-            flash_attn=True,
-            cache_dir="/azurestorage/huggingface_cache/models",
-            **kwargs,
-            ):
-
-    if task_type.lower()=="causal_lm":
-      model = AutoModelForCausalLM.from_pretrained(
-          base_model_path,
-          trust_remote_code=True,
-          use_cache=False if gradient_checkpointing else True, # use_cache is incompatible with gradient_checkpointing
-          torch_dtype="auto",
-          # device_map="cuda",
-          attn_implementation="flash_attention_2" if flash_attn else None,
-          cache_dir=cache_dir,
-          **kwargs,
-      )
-
-    elif task_type.lower()=="sequence_classification":
-      pass
-
-    elif task_type.lower()=="question_answering":
-      pass
-
-    if gradient_checkpointing:
-        model.gradient_checkpointing_enable()
-    return model
-
-
-def load_optimizer_scheduler(model,
-                        optimizer_name:str,
-                        scheduler_name:str,
-                        total_update_steps:int,
-                        warmup_ratio:float,
-                        optimizer_kwargs:dict=None, # ex) {"lr":1e-5,"weight_decay":0.01}
-                        scheduler_kwargs:dict=None, # ex) {"num_cycles":0.3}
-                        galore_kwargs:dict=None,
-                        ):
-
-    optimizer_name=optimizer_name.lower().strip()
-    params=filter(lambda x:x.requires_grad,model.parameters())
-                  
-
-    if optimizer_name=="adamw":
-        optimizer=AdamW(params=params,
-                        **optimizer_kwargs,
-                        )
-
-    elif optimizer_name=="adamw8bit":
-        optimizer = bnb.optim.AdamW8bit(params=params,
-                        **optimizer_kwargs,
-                        )
-
-        for module in model.modules():
-            if isinstance(module, torch.nn.Embedding):
-                bnb.optim.GlobalOptimManager.get_instance().register_module_override(
-                    module, 'weight', {'optim_bits': 32}
-                )
-
-    elif optimizer_name=="pagedadamw8bit":
-        optimizer = bnb.optim.PagedAdamW8bit(params=params,
-                        **optimizer_kwargs,
-                        )
-
-        for module in model.modules():
-            if isinstance(module, torch.nn.Embedding):
-                bnb.optim.GlobalOptimManager.get_instance().register_module_override(
-                    module, 'weight', {'optim_bits': 32}
-                )
-
-    elif "galore" in optimizer_name:
-        # label layers for galore optimizer
-        target_modules_list = ["attn", "mlp"]
-        # target_modules_list = ["q_proj", "v_proj"]
-        galore_params = []
-        for module_name, module in model.named_modules():
-            if not isinstance(module, nn.Linear):
-                continue
-
-            if not any(target_key in module_name for target_key in target_modules_list):
-                continue
-
-            galore_params.append(module.weight)
-
-        id_galore_params = [id(p) for p in galore_params]
-        # make parameters without "rank" to another group
-        regular_params = [p for p in model.parameters() if id(p) not in id_galore_params]
-        # then call galore_adamw
-        
-        galore_param_dict={'params': galore_params}
-        galore_param_dict.update(galore_kwargs)
-
-        param_groups = [{'params': regular_params}, 
-                        galore_param_dict]
-        
-        if optimizer_name=="galoradamw":
-          optimizer = GaLoreAdamW(param_groups, **optimizer_kwargs)
-        elif optimizer_name=="galoreadamw8bit":
-          optimizer = GaLoreAdamW(param_groups, **optimizer_kwargs)
-
-
-    if scheduler_name=="cosine_with_hard_restarts_schedule_with_warmup":
-
-      scheduler=get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
-                                                                num_warmup_steps=total_update_steps*warmup_ratio,
-                                                                num_training_steps=total_update_steps,
-                                                                **scheduler_kwargs)
-    elif scheduler_name=="cosine_schedule_with_warmup":
-
-      scheduler=get_cosine_schedule_with_warmup(optimizer,
-                                                num_warmup_steps=total_update_steps*warmup_ratio,
-                                                num_training_steps=total_update_steps,
-                                                **scheduler_kwargs)
-
-
-    print("optimizer : ",optimizer)
-    print("scheduler : ",scheduler)
-                                         
-    return optimizer,scheduler
-
+  return model,tokenizer
 
 def load_and_prepare_dataset(dataset=None,dataset_dir:str=None,preprocess_func=None,fn_kwargs:dict=None):
   '''
@@ -260,3 +182,18 @@ def load_and_prepare_dataset(dataset=None,dataset_dir:str=None,preprocess_func=N
     dataset=dataset.map(preprocess_func,fn_kwargs=fn_kwargs)
 
   return dataset
+
+
+def get_lora_model(model,use_unsloth=False,**lora_kwargs):
+
+  if use_unsloth:
+    model=FastLanguageModel.get_peft_model(model,**lora_kwargs)
+
+  else:
+    lora_config=LoraConfig(**lora_kwargs)
+    model=get_peft_model(model,lora_config)
+
+  if os.getenv('LOCAL_RANK',"0")=="0":
+      model.print_trainable_parameters()
+
+  return model
