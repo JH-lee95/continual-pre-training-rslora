@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 @dataclass
 class TranslationTemplate:
-    translation_template_w_glossary='''You are a professional translator. Translate the following {} texts into {}. Refer to the word pairs in the glossary when you translate. Do not translate the glossary itself. 
+    translation_template_w_glossary='''You are a professional translator. Translate the following {} texts into {}. Refer to the word pairs in the glossary when you translate. You can ignore the words in the glossary that hurt the context and naturality. Do not translate the glossary itself. 
 {}
 Translation:
 '''
