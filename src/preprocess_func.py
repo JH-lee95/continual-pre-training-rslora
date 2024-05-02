@@ -99,12 +99,14 @@ def make_translation_input_from_dataset(data,
         
         if data["term_dict"] is not None and len(data["term_dict"]):
             term_dict = ast.literal_eval(data["term_dict"])
+            term_dict=formatting_glossary(term_dict,glossary_template)
+            sent2terms.append(f"{term_dict}\n".strip())
 
             for s in splited_sents:
                 new_s = f"{sentence_template}\n{s}\n"
                 sent2terms.append(new_s)
-            term_dict=formatting_glossary(term_dict,glossary_template)
-            sent2terms.append(f"\n{term_dict}".strip())
+            # term_dict=formatting_glossary(term_dict,glossary_template)
+            # sent2terms.append(f"\n{term_dict}".strip())
 
         else:
             # Handle case of empty term_dict (e.g., directly append sentences)
@@ -120,7 +122,9 @@ def make_translation_input_from_dataset(data,
         if data["term_dict"] is not None and len(data["term_dict"]):
             term_dict = ast.literal_eval(data["term_dict"])
             term_dict=formatting_glossary(term_dict,glossary_template)
-            formatted_text=f"{sentence_template}\n{src_text}\n{term_dict}".strip()
+            # formatted_text=f"{sentence_template}\n{src_text}\n{term_dict}".strip()
+            formatted_text=f"{term_dict}\n{sentence_template}\n{src_text}".strip()
+
         else:
             formatted_text=f"{sentence_template}\n{src_text}".strip()
 
