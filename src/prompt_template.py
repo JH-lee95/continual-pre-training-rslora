@@ -2,19 +2,21 @@ from dataclasses import dataclass
 
 @dataclass
 class TranslationTemplate:
-    translation_template_w_glossary='''You are a professional translator. Translate the following {} texts into {}. Refer to the word pairs in the glossary when you translate. Do not translate the glossary itself. 
+    translation_template_w_glossary='''Translate the following {} texts into {}. Refer to the word pairs in the glossary when you translate. Do not translate the glossary itself. 
 {}
 Translation:
 '''
 
-    translation_template_wo_glossary='''You are a professional translator. Translate the following {} texts into {}.
+    translation_template_wo_glossary='''Translate the following {} texts into {}.
 {}
 Translation:
 '''
 
+    system_prompt="You are a professional translator."
     response_template="Translation:"
     glossary_template="Glossary:"
     sentence_template="Source:"
+    # chat_template=
 
 
 

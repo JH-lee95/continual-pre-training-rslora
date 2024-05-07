@@ -130,6 +130,7 @@ def main(args):
     ######################################### dataset ####################################################
     train_dataset=load_and_prepare_dataset(dataset_dir=args.train_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template_wo_glossary":TranslationTemplate.translation_template_wo_glossary,
                                                                                                                                                             "prompt_template_w_glossary":TranslationTemplate.translation_template_w_glossary,
+                                                                                                                                                            "system_prompt":TranslationTemplate.system_prompt,
                                                                                                                                                             "tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,
                                                                                                                                                             "sentence_template":TranslationTemplate.sentence_template,
                                                                                                                                                             "text_split":False}).shuffle(seed=args.seed)
