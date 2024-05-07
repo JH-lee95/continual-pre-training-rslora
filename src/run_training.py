@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument("--ckpt_dir",type=str,default=None)
     parser.add_argument("--train_dataset_dir",type=str)
     parser.add_argument("--eval_dataset_dir",type=str,default=None)
-    parser.add_argument("--cache_dir",type=str)
+    parser.add_argument("--cache_dir",type=str,default=None)
 
     ## hyper parameters
     parser.add_argument("--seed",type=int,default=42)
@@ -45,7 +45,7 @@ def parse_args():
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--num_epochs', type=int, default=1)
     parser.add_argument("--gradient_accumulation_steps",type=int,default=1)
-    parser.add_argument("--gradient_checkpointing",type=bool,default=False,help="reducing required memory size but slower training")
+    parser.add_argument("--gradient_checkpointing",action="store_true",help="reducing required memory size but slower training")
     parser.add_argument("--warmup_ratio",type=float,default=0.01)
     parser.add_argument("--num_save_per_epoch",type=int,default=3,help="number of saving(evaluating) per a epoch")
     
@@ -90,13 +90,13 @@ def set_environ(args):
         os.environ["MLFLOW_TAGS"]='{"mlflow.note.content":' + f'"{args.expr_desc}"' + "}"
 
 
-def print_training_information():
+def print_training_information(args,model,dataset,training_arguments,total_update_steps):
 
     if os.getenv("LOCAL_RANK","0")=="0":
         model.print_trainable_parameters()
 
         print("---Training data samples---")
-        for data in train_dataset.shuffle().select(range(10)):
+        for data in dataset.shuffle().select(range(10)):
             print("--------------------\n",data[args.dataset_text_field])
 
         args_table = PrettyTable(["Argument", "Value"])
@@ -114,7 +114,7 @@ def main(args):
     ####################################################################################################
 
     ######################################### model & tokenizer #########################################
-    model,tokenizer=load_model_tokenizer(args.base_model_dir,gradient_checkpointing=args.gradient_checkpointing,quantization_config=None)
+    model,tokenizer=load_model_tokenizer(base_model_path=args.base_model_dir,gradient_checkpointing=args.gradient_checkpointing,cache_dir=args.cache_dir,use_unsloth=args.use_unsloth,pad_token="<|eot_id|>")
     model.config.use_cache = False # use_cache is only for infernce
  
     if args.enable_lora:
@@ -125,6 +125,7 @@ def main(args):
                 bias=args.lora_bias,
                 task_type=args.lora_task_type,
                 target_modules=args.lora_target_modules)
+
     ######################################################################################################
 
     ######################################### dataset ####################################################
@@ -170,7 +171,7 @@ def main(args):
     print("detected device : ",training_arguments.device)
     ######################################################################################################
     
-    print_training_information()
+    print_training_information(args,model,train_dataset,training_arguments,total_update_steps)
 
     if args.train:
       if args.ckpt_dir is not None:
@@ -179,7 +180,7 @@ def main(args):
         trainer.train()
 
     # Logging dataset
-    if os.getenv("LOCAL_RANK","0")
+    if os.getenv("LOCAL_RANK","0"):
         last_run_id = mlflow.last_active_run().info.run_id
         with mlflow.start_run(run_id=last_run_id):
             mlflow.log_input(mlflow.data.from_huggingface(train_dataset,data_files=args.train_dataset_dir), context="training dataset")

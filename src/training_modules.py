@@ -19,6 +19,7 @@ import random
 from peft import LoraConfig,get_peft_model
 import ipdb
 from galore_torch import GaLoreAdamW, GaLoreAdamW8bit
+from unsloth import FastLanguageModel
 
 
 class CreateTrainer():
@@ -34,7 +35,7 @@ class CreateTrainer():
         bf16= True,
         run_name=self.args.run_name,
         lr_scheduler_kwargs=self.args.scheduler_kwargs,
-        optim_target_modules=[r'*attn*',r'*mlp*'] if self.args.enable_galore else None
+        optim_target_modules=[r'*attn*',r'*mlp*'] if self.args.enable_galore else None,
         ddp_find_unused_parameters=False,
                         )
 
@@ -42,7 +43,7 @@ class CreateTrainer():
     self.training_arguments=self.training_arguments.set_optimizer(name=self.args.optimizer.lower(),
                                                                   learning_rate=self.args.learning_rate,
                                                                   weight_decay=self.args.weight_decay,
-                                                                  optim_args=self.args.optim_args,
+                                                                  args=self.args.optim_args,
                                                                   )
     self.training_arguments=self.training_arguments.set_lr_scheduler(name=self.args.scheduler.lower(),
                                                                     num_epochs=self.args.num_epochs,
@@ -101,19 +102,18 @@ def load_model_tokenizer(base_model_path,
           additional_special_tokens=None,
           pad_token=None,
           pad_token_id=None,
-          **model_kwargs,
-          **tokenizer_kwargs,
-            ):
+          use_unsloth=False,
+          model_kwargs:dict=None,
+          tokenizer_kwargs:dict=None,
+          ):
 
   ##################### set model #######################
   if task_type.lower()=="causal_lm":
 
-    if self.args.use_unsloth:
+    if use_unsloth:
       model, _ = FastLanguageModel.from_pretrained(
-                        model_name = base_model_path # Supports Llama, Mistral - replace this!
+                        model_name = base_model_path,
                         dtype=None,
-                        # cache_dir=cache_dir,
-                        **model_kwargs,
                     )
 
     else:
@@ -125,7 +125,6 @@ def load_model_tokenizer(base_model_path,
           # device_map="cuda",
           attn_implementation="flash_attention_2" if flash_attn else None,
           cache_dir=cache_dir,
-          **model_kwargs,
       )
 
   elif task_type.lower()=="sequence_classification":
@@ -138,7 +137,7 @@ def load_model_tokenizer(base_model_path,
       model.gradient_checkpointing_enable()
 
   ##################### set tokenizer #######################
-  tokenizer = AutoTokenizer.from_pretrained(base_model_path,trust_remote_code=True,**tokenizer_kwargs)
+  tokenizer = AutoTokenizer.from_pretrained(base_model_path,trust_remote_code=True)
   ###### set special tokens #####
   if additional_special_tokens is not None:
     tokenizer.add_special_tokens({"additional_special_tokens": additional_special_tokens})
