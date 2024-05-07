@@ -19,7 +19,7 @@ import random
 from peft import LoraConfig,get_peft_model
 import ipdb
 from galore_torch import GaLoreAdamW, GaLoreAdamW8bit
-from unsloth import FastLanguageModel
+# from unsloth import FastLanguageModel
 
 
 class CreateTrainer():
@@ -30,41 +30,41 @@ class CreateTrainer():
   def _set_training_arguments(self):
 
     self.training_arguments = TrainingArguments(
-      output_dir= self.args.output_dir,
-        # fp16= True,
-        bf16= True,
+      
+        ## general settings
+        output_dir=self.args.output_dir,
         run_name=self.args.run_name,
-        lr_scheduler_kwargs=self.args.scheduler_kwargs,
-        optim_target_modules=[r'*attn*',r'*mlp*'] if self.args.enable_galore else None,
-        ddp_find_unused_parameters=False,
-                        )
-
-
-    self.training_arguments=self.training_arguments.set_optimizer(name=self.args.optimizer.lower(),
-                                                                  learning_rate=self.args.learning_rate,
-                                                                  weight_decay=self.args.weight_decay,
-                                                                  args=self.args.optim_args,
-                                                                  )
-    self.training_arguments=self.training_arguments.set_lr_scheduler(name=self.args.scheduler.lower(),
-                                                                    num_epochs=self.args.num_epochs,
-                                                                    warmup_ratio=self.args.warmup_ratio)
-    self.training_arguments=self.training_arguments.set_dataloader(train_batch_size=self.args.train_batch_size,
-                                                             eval_batch_size=self.args.eval_batch_size,
-                                                             pin_memory=True,
-                                                             num_workers=self.args.num_workers,
-                                                             sampler_seed=self.args.seed
-                                                            )
-    self.training_arguments=self.training_arguments.set_training(
-        num_epochs=self.args.num_epochs,
-        gradient_accumulation_steps=self.args.gradient_accumulation_steps,
         seed=self.args.seed,
+        ddp_find_unused_parameters=False,
+
+        ## training settings
+        fp16= True if not torch.cuda.is_bf16_supported() else False,
+        bf16= True if torch.cuda.is_bf16_supported() else False,
+        save_strategy="steps",
+        save_steps=self.args.eval_steps,
+        save_total_limit=self.args.save_total_limit,
+        logging_steps=self.args.logging_steps,
+        report_to=["mlflow"],
+
+        ## optimizer settings
+        optim=self.args.optimizer.lower(),
+        learning_rate=self.args.learning_rate,
+        weight_decay=self.args.weight_decay,
+        optim_args=self.args.optim_args,
+        optim_target_modules=[r'*attn*',r'*mlp*'] if self.args.enable_galore else None,
+        gradient_accumulation_steps=self.args.gradient_accumulation_steps,
+
+        ## scheduler settings
+        lr_scheduler_type=self.args.scheduler.lower(),
+        warmup_ratio=self.args.warmup_ratio,
+        lr_scheduler_kwargs=self.args.scheduler_kwargs,
+        num_train_epochs=self.args.num_epochs,
+
+        ## dataloader settings
+        per_device_train_batch_size=self.args.train_batch_size,
+        per_device_eval_batch_size=self.args.eval_batch_size,
+        dataloader_num_workers=self.args.num_workers,
         )
-    self.training_arguments=self.training_arguments.set_logging(strategy="steps",steps=self.args.logging_steps,report_to=["mlflow"])
-    self.training_arguments=self.training_arguments.set_save(strategy="steps",steps=self.args.eval_steps,total_limit=self.args.save_total_limit)
-
-    if self.args.eval:
-          training_arguments=training_arguments.set_evaluate(strategy="steps", batch_size=self.args.eval_batch_size,steps=self.args.eval_steps,delay=0)
-
 
   def create_trainer_sft(self,model,tokenizer,train_dataset,eval_dataset,response_template=None,data_collator=None):
 
@@ -111,6 +111,7 @@ def load_model_tokenizer(base_model_path,
   if task_type.lower()=="causal_lm":
 
     if use_unsloth:
+      from unsloth import FastLanguageModel
       model, _ = FastLanguageModel.from_pretrained(
                         model_name = base_model_path,
                         dtype=None,

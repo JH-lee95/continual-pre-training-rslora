@@ -8,7 +8,6 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.11"
 numpy = "^1.26.4"
-torch = "2.2.1"
 transformers = "^4.39.0"
 datasets = "^2.18.0"
 packaging = "<24.0"
@@ -33,6 +32,7 @@ wheel = "^0.43.0"
 setuptools = "^69.2.0"
 jupyter = "^1.0.0"
 ipykernel = "^6.29.3"
+torch = "2.2.2"
 
 
 [build-system]
