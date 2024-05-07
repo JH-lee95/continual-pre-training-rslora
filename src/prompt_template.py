@@ -3,13 +3,14 @@ from dataclasses import dataclass
 @dataclass
 class TranslationTemplate:
     translation_template_w_glossary='''Translate the following {} texts into {}. Refer to the word pairs in the glossary when you translate. Do not translate the glossary itself. 
+
 {}
-Translation:
+### Translation:
 '''
 
     translation_template_wo_glossary='''Translate the following {} texts into {}.
 {}
-Translation:
+### Translation:
 '''
 
     system_prompt="You are a professional translator."
