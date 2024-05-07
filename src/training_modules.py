@@ -193,7 +193,4 @@ def get_lora_model(model,use_unsloth=False,**lora_kwargs):
     lora_config=LoraConfig(**lora_kwargs)
     model=get_peft_model(model,lora_config)
 
-  if os.getenv('LOCAL_RANK',"0")=="0":
-      model.print_trainable_parameters()
-
   return model
