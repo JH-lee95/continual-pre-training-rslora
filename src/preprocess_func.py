@@ -100,7 +100,7 @@ def make_translation_input_from_dataset(data,
         if data["term_dict"] is not None and len(data["term_dict"]):
             term_dict = ast.literal_eval(data["term_dict"])
             term_dict=formatting_glossary(term_dict,glossary_template)
-            sent2terms.append(f"{term_dict}\n".strip())
+            sent2terms.append(f"{term_dict}\n")
 
             for s in splited_sents:
                 new_s = f"{sentence_template}\n{s}\n"
