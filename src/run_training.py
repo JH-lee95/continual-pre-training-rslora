@@ -113,7 +113,7 @@ def main(args):
     ####################################################################################################
 
     ######################################### model & tokenizer #########################################
-    model,tokenizer=load_model_tokenizer(base_model_path=args.base_model_dir,gradient_checkpointing=args.gradient_checkpointing,cache_dir=args.cache_dir,use_unsloth=args.use_unsloth,pad_token="<|eot_id|>")
+    model,tokenizer=load_model_tokenizer(base_model_path=args.base_model_dir,gradient_checkpointing=args.gradient_checkpointing,cache_dir=args.cache_dir,use_unsloth=args.use_unsloth,pad_token="<|reserved_special_token_0|>")
     model.config.use_cache = False # use_cache is only for infernce
  
     if args.enable_lora:
@@ -130,6 +130,7 @@ def main(args):
     ######################################### dataset ####################################################
     train_dataset=load_and_prepare_dataset(dataset_dir=args.train_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template_wo_glossary":TranslationTemplate.translation_template_wo_glossary,
                                                                                                                                                             "prompt_template_w_glossary":TranslationTemplate.translation_template_w_glossary,
+                                                                                                                                                            "chat_template":TranslationTemplate.chat_template,
                                                                                                                                                             "system_prompt":TranslationTemplate.system_prompt,
                                                                                                                                                             "tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,
                                                                                                                                                             "sentence_template":TranslationTemplate.sentence_template,

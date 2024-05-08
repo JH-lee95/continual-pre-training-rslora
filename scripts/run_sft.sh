@@ -17,7 +17,7 @@ torchrun --nproc-per-node 4  src/run_training.py --base_model_dir maywell/Llama-
 
 
 
-torchrun --nproc-per-node 4  src/run_training.py --base_model_dir beomi/Llama-3-KoEn-8B-Instruct-preview --train_batch_size 4 --expr_desc "finetuning" --expr_name "Term-MT" --run_name "llama3-inst" --max_seq_length 8192 --learning_rate 1e-5 --train_dataset_dir /nvme0/data/training_dataset_10k --enable_lora --gradient_checkpointing --cache_dir /nvme0
+torchrun --nproc-per-node 4  src/run_training.py --base_model_dir beomi/Llama-3-Open-Ko-8B-Instruct-preview --train_batch_size 4 --expr_desc "finetuning" --expr_name "Term-MT" --run_name "llama3-inst" --max_seq_length 8192 --learning_rate 1e-5 --train_dataset_dir /nvme0/data/training_dataset_10k --enable_lora --gradient_checkpointing --cache_dir /nvme0
 
 
 # torchrun --nproc-per-node 4  src/run_training.py --base_model_dir beomi/Llama-3-Open-Ko-8B --train_batch_size 4 --expr_desc "finetuning" --expr_name "Term-MT" --run_name "llama3-data10k-split" --max_seq_length 8192 --learning_rate 1e-5 --train_dataset_dir /data/training_dataset_10k --enable_galore True --enable_lora True --gradient_checkpointing=True

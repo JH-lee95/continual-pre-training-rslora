@@ -74,12 +74,18 @@ def make_translation_input_from_dataset(data,
                                   system_prompt=None,
                                   glossary_template=None,
                                   sentence_template=None,
+                                  chat_template=None,
                                   src:str=None, 
                                   tgt:str=None,
                                   return_output=True,
                                   text_split=True,
                                   **kwargs
                                   ):
+
+
+
+    if chat_template is not None and len(chat_template):
+        tokenizer.chat_template=chat_template
 
     lang_dict={"korean":"Korean","english":"English","ko":"Korean","eng":"English","en":"English"}
     src_tgt_dict={"en":"english","eng":"english","english":"english","ko":"korean","kor":"korean","korean":"korean"}
@@ -97,7 +103,6 @@ def make_translation_input_from_dataset(data,
     if text_split:
         splited_sents=text_spliter.text2sent(lang_dict[src],src_text,return_string=False)
         sent2terms = []
-        
         if data["term_dict"] is not None and len(data["term_dict"]):
             term_dict = ast.literal_eval(data["term_dict"])
             term_dict=formatting_glossary(term_dict,glossary_template)
@@ -141,20 +146,21 @@ def make_translation_input_from_dataset(data,
             {"role": "assistant", "content": data[tgt]},
         ]
 
-        # template=template+data[tgt]+tokenizer.eos_token
+        template=tokenizer.apply_chat_template(
+                                        messages,
+                                        tokenize=False,
+                                        )+tokenizer.eos_token
+
     else:
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": template},
         ]
 
-    template=tokenizer.apply_chat_template(
-                                    messages,
-                                    tokenize=False,
-                                    )
-
-    ipdb.set_trace()
-        
+        template=tokenizer.apply_chat_template(
+                                        messages,
+                                        tokenize=False,
+                                        )
     return {"text":template}
 
 
