@@ -70,7 +70,7 @@ class CreateTrainer():
 
     if response_template is not None:
       response_template_with_context=f"{response_template}"
-      response_template_ids = tokenizer.encode(response_template_with_context, add_special_tokens=False)
+      response_template_ids = tokenizer.encode(response_template_with_context, add_special_tokens=False)[2:]
       data_collator=DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
     else:
