@@ -4,25 +4,26 @@ from dataclasses import dataclass
 class TranslationTemplate:
     translation_template_w_glossary='''Translate the following {} source text into {}. Refer to the word pairs in the glossary when you translate. Do not translate the glossary itself.
 {}
-### Translation:
 '''
 
     translation_template_wo_glossary='''Translate the following {} source text into {}.
 {}
-### Translation:
 '''
 
-    system_prompt="You are a professional translator."
-    response_template="\n### Translation:\n"
+    # system_prompt="You are a professional translator.
+    system_prompt="You are a professional translator. You are familiar with specialized knowledge and terms in economics, law, and accounting, as well as general everyday terms."
+    response_template="### Target:"
     # response_template="assistant<|end_header_id|>"
     glossary_template="### Glossary:"
     sentence_template="### Source:"
     
     ## default chat_template
-    chat_template="{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ content }}{% elif message['role'] == 'assistant' %}{{ content + '\\n' }}{% endif %}{% endfor %}"
+    # chat_template="{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ content }}{% elif message['role'] == 'assistant' %}{{ content + '\\n' }}{% endif %}{% endfor %}"
 
     # chat_template="{% set loop_messages = messages %}{% for message in loop_messages %}{% set content = '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' %}{% if loop.index0 == 0 %}{% set content = bos_token + content %}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}{% endif %}"
 
+    ## eeve inst
+    chat_template="{% for message in messages %}{% if message['role'] == 'user' %}{{'Human: ' + message['content'].strip() + '\n'}}{% elif message['role'] == 'system' %}{{message['content'].strip()+ '\n'}}{% elif message['role'] == 'assistant' %}{{ 'Assistant:\n'  + message['content']}}{% endif %}{% endfor %}"
 
 # @dataclass
 # class TranslationTemplate:

@@ -72,6 +72,7 @@ def make_translation_input_from_dataset(data,
                                   prompt_template_w_glossary,
                                   prompt_template_wo_glossary,
                                   system_prompt=None,
+                                  response_template=None,
                                   glossary_template=None,
                                   sentence_template=None,
                                   chat_template=None,
@@ -143,7 +144,7 @@ def make_translation_input_from_dataset(data,
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": template},
-            {"role": "assistant", "content": data[tgt]},
+            {"role": "assistant", "content": f"{response_template}\n"+data[tgt]},
         ]
 
         template=tokenizer.apply_chat_template(

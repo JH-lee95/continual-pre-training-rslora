@@ -132,25 +132,11 @@ def main(args):
                                                                                                                                                             "prompt_template_w_glossary":TranslationTemplate.translation_template_w_glossary,
                                                                                                                                                             "chat_template":TranslationTemplate.chat_template,
                                                                                                                                                             "system_prompt":TranslationTemplate.system_prompt,
-                                                                                                                                                            "tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,
+                                                                                                                                                            "tokenizer":tokenizer,
+                                                                                                                                                            "response_template":TranslationTemplate.response_template,
+                                                                                                                                                            "glossary_template":TranslationTemplate.glossary_template,
                                                                                                                                                             "sentence_template":TranslationTemplate.sentence_template,
                                                                                                                                                             "text_split":False}).shuffle(seed=args.seed)
-
-    # train_dataset_no_text_split=train_dataset.select(range(1,1000))
-    # train_dataset_no_text_split=load_and_prepare_dataset(dataset=train_dataset_no_text_split,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template_wo_glossary":TranslationTemplate.translation_template_wo_glossary,
-    #                                                                                                                                                         "prompt_template_w_glossary":TranslationTemplate.translation_template_w_glossary,
-    #                                                                                                                                                         "tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,
-    #                                                                                                                                                         "sentence_template":TranslationTemplate.sentence_template,
-    #                                                                                                                                                         "text_split":False})
-
-    # train_dataset_text_split=train_dataset.select(range(1000,len(train_dataset)))
-    # train_dataset_text_split=load_and_prepare_dataset(dataset=train_dataset_text_split,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template_wo_glossary":TranslationTemplate.translation_template_wo_glossary,
-    #                                                                                                                                                         "prompt_template_w_glossary":TranslationTemplate.translation_template_w_glossary,
-    #                                                                                                                                                         "tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,
-    #                                                                                                                                                         "sentence_template":TranslationTemplate.sentence_template,
-    #                                                                                                                                                         "text_split":True})
-
-    # train_dataset=concatenate_datasets([train_dataset_no_text_split,train_dataset_text_split]).shuffle(seed=args.seed)
 
     if args.eval:
         eval_dataset=load_and_prepare_dataset(args.eval_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template":TranslationTemplate.translation_template,"tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,"sentence_template":TranslationTemplate.sentence_template})
