@@ -64,6 +64,9 @@ class CreateTrainer():
         per_device_train_batch_size=self.args.train_batch_size,
         per_device_eval_batch_size=self.args.eval_batch_size,
         dataloader_num_workers=self.args.num_workers,
+        
+        # neft noise
+        # neftune_noise_alpha=5,
         )
 
   def create_trainer_sft(self,model,tokenizer,train_dataset,eval_dataset,response_template=None,data_collator=None):
