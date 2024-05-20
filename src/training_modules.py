@@ -125,8 +125,8 @@ def load_model_tokenizer(base_model_path,
           base_model_path,
           trust_remote_code=True,
           use_cache=False if gradient_checkpointing else True, # use_cache is incompatible with gradient_checkpointing
-          torch_dtype="auto",
-          # device_map="cuda",
+          torch_dtype=torch.bfloat16,
+          device_map="auto", # for mp
           attn_implementation="flash_attention_2" if flash_attn else None,
           cache_dir=cache_dir,
       )

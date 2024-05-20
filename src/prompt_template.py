@@ -11,7 +11,7 @@ class TranslationTemplate:
 '''
 
     # system_prompt="You are a professional translator.
-    system_prompt="You are a professional translator. You are familiar with specialized knowledge and terms in economics, law, and accounting, as well as general everyday terms."
+    system_prompt="You are a professional translator. You look at every words and sentences carefully and translate them without making any omissions."
     response_template="### Target:"
     # response_template="assistant<|end_header_id|>"
     glossary_template="### Glossary:"
@@ -25,6 +25,11 @@ class TranslationTemplate:
 
     ## eeve inst
     # chat_template="{% for message in messages %}{% if message['role'] == 'user' %}{{'Human: ' + message['content'].strip() + '\n'}}{% elif message['role'] == 'system' %}{{message['content'].strip()+ '\n'}}{% elif message['role'] == 'assistant' %}{{ 'Assistant:\n'  + message['content']}}{% endif %}{% endfor %}"
+
+    ## chatml
+    # chat_template="{% for message in messages %}{% if message['role'] == 'user' %}{{'<im_start>user'+\n+ messsage['content'].strip() +'<im_end>' +'\n'}}{% elif message['role'] == 'system' %}{{'<im_start>system' + '\n'+message['content'].strip()+ '<im_end>' +'\n'}}{% elif message['role'] == 'assistant' %}{{ '<im_start>assistant'+\n'  + message['content']+'<im_end>'}}{% endif %}{% endfor %}"
+
+    # chat_template=None
 
 # @dataclass
 # class TranslationTemplate:
