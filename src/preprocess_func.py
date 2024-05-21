@@ -150,6 +150,7 @@ def make_translation_input_from_dataset(data,
         template=tokenizer.apply_chat_template(
                                         messages,
                                         tokenize=False,
+                                        add_generation_prompt=True,
                                         )+tokenizer.eos_token
 
     else:

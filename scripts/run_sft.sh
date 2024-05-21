@@ -7,10 +7,10 @@ torchrun --nproc-per-node 4  src/run_training.py --base_model_dir yanolja/EEVE-K
 torchrun --nproc-per-node 4  src/run_training.py --base_model_dir lcw99/llama-3-10b-it-kor-extented-chang --train_batch_size 1 --expr_desc "finetuning" --expr_name "Term-MT" --run_name "llama3-10b-data11k" --max_seq_length 8192 --learning_rate 1e-5 --train_dataset_dir /nvme0/data/training_dataset_11k --enable_lora --cache_dir /nvme0/models
 
 
-torchrun --nproc-per-node 4  src/run_training.py --base_model_dir maywell/Synatra-7B-v0.3-Translation --train_batch_size 1 --expr_desc "finetuning" --expr_name "Term-MT" --run_name "mistral-data7k" --max_seq_length 8192 --learning_rate 1e-5 --train_dataset_dir /nvme0/data/training_dataset_7k --enable_lora --cache_dir /nvme0/models
 
 
 
+python src/run_training.py --base_model_dir maywell/Yi-Ko-34B-Instruct --train_batch_size 2 --expr_desc "finetuning" --expr_name "Term-MT" --run_name "yi-ko-34b-inst-data1.1k" --max_seq_length 4096 --learning_rate 1e-5 --train_dataset_dir /nvme0/data/training_dataset_1.1k --enable_lora --cache_dir /nvme0/models --device_map "auto"
 
 
-torchrun --nproc-per-node 4  src/run_training.py --base_model_dir mirlab/AkaLlama-llama3-70b-v0.1 --train_batch_size 4 --expr_desc "finetuning" --expr_name "Term-MT" --run_name "llama3-70b-data11k" --max_seq_length 8192 --learning_rate 1e-5 --train_dataset_dir /nvme0/data/training_dataset_11k --enable_lora --cache_dir /nvme0/models --gradient_checkpointing
+python src/run_training.py --base_model_dir beomi/Yi-Ko-34B --train_batch_size 2 --expr_desc "finetuning" --expr_name "Term-MT" --run_name "yi-ko-34b-data1.1k" --max_seq_length 4096 --learning_rate 1e-5 --train_dataset_dir /nvme0/data/training_dataset_1.1k --enable_lora --cache_dir /nvme0/models --device_map "auto"

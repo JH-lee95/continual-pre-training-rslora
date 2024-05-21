@@ -51,8 +51,8 @@ def parse_args():
     
     ## lora config
     parser.add_argument("--enable_lora",action="store_true",help="train wtih lora, full finetuning otherwise")
-    parser.add_argument("--lora_rank", type=int, default=8)
-    parser.add_argument("--lora_alpha", type=int, default=8)
+    parser.add_argument("--lora_rank", type=int, default=4)
+    parser.add_argument("--lora_alpha", type=int, default=4)
     parser.add_argument("--lora_dropout_rate", type=float, default=0.01)
     parser.add_argument("--lora_bias", default="none")
     parser.add_argument("--lora_task_type", type=str, default="CAUSAL_LM")
@@ -77,6 +77,7 @@ def parse_args():
     parser.add_argument("--test",type=bool, default=False)
     parser.add_argument("--dataset_text_field",type=str, default="text")
     parser.add_argument("--use_unsloth",action="store_true",help="use usloth backend for training")
+    parser.add_argument("--device_map",type=str,help = "device map to load the model ex)'auto' for model parallel or'cuda", default = None)
 
 
     return parser.parse_args()
@@ -113,7 +114,7 @@ def main(args):
     ####################################################################################################
 
     ######################################### model & tokenizer #########################################
-    model,tokenizer=load_model_tokenizer(base_model_path=args.base_model_dir,gradient_checkpointing=args.gradient_checkpointing,cache_dir=args.cache_dir,use_unsloth=args.use_unsloth,pad_token="<|reserved_special_token_0|>")
+    model,tokenizer=load_model_tokenizer(base_model_path=args.base_model_dir,gradient_checkpointing=args.gradient_checkpointing,cache_dir=args.cache_dir,use_unsloth=args.use_unsloth,pad_token="<|reserved_special_token_0|>",device_map=args.device_map)
  
     if args.enable_lora:
         model=get_lora_model(model,

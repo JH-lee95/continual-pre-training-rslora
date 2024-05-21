@@ -106,8 +106,7 @@ def load_model_tokenizer(base_model_path,
           pad_token=None,
           pad_token_id=None,
           use_unsloth=False,
-          model_kwargs:dict=None,
-          tokenizer_kwargs:dict=None,
+          device_map=None,
           ):
 
   ##################### set model #######################
@@ -126,7 +125,7 @@ def load_model_tokenizer(base_model_path,
           trust_remote_code=True,
           use_cache=False if gradient_checkpointing else True, # use_cache is incompatible with gradient_checkpointing
           torch_dtype=torch.bfloat16,
-          device_map="auto", # for mp
+          device_map=device_map,
           attn_implementation="flash_attention_2" if flash_attn else None,
           cache_dir=cache_dir,
       )
