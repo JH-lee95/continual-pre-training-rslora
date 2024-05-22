@@ -140,25 +140,20 @@ def make_translation_input_from_dataset(data,
     else:
         template=formatting_prompt_func(prompt_template_wo_glossary,lang_dict[src],lang_dict[tgt],formatted_text)
 
+    messages=[{"role": "user", "content": template}]
+
+    if system_prompt is not None and len(system_prompt):
+        messages.insert(0,{"role": "system", "content": system_prompt})
+
     if return_output:
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": template},
-            {"role": "assistant", "content": f"{response_template}\n"+data[tgt]},
-        ]
+        messages.append({"role": "assistant", "content": f"{response_template}\n"+data[tgt]})
 
         template=tokenizer.apply_chat_template(
                                         messages,
                                         tokenize=False,
-                                        add_generation_prompt=True,
                                         )+tokenizer.eos_token
 
     else:
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": template},
-        ]
-
         template=tokenizer.apply_chat_template(
                                         messages,
                                         tokenize=False,

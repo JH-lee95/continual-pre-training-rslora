@@ -120,12 +120,23 @@ def load_model_tokenizer(base_model_path,
                     )
 
     else:
-      model = AutoModelForCausalLM.from_pretrained(
+
+      if device_map is not None:
+        model = AutoModelForCausalLM.from_pretrained(
+            base_model_path,
+            trust_remote_code=True,
+            use_cache=False if gradient_checkpointing else True, # use_cache is incompatible with gradient_checkpointing
+            torch_dtype=torch.bfloat16,
+            device_map=device_map,
+            attn_implementation="flash_attention_2" if flash_attn else None,
+            cache_dir=cache_dir,
+        )
+      else:
+        model = AutoModelForCausalLM.from_pretrained(
           base_model_path,
           trust_remote_code=True,
           use_cache=False if gradient_checkpointing else True, # use_cache is incompatible with gradient_checkpointing
           torch_dtype=torch.bfloat16,
-          device_map=device_map,
           attn_implementation="flash_attention_2" if flash_attn else None,
           cache_dir=cache_dir,
       )
