@@ -9,8 +9,8 @@ class TranslationTemplate:
     translation_template_wo_glossary='''Translate the following {} source text into {}.
 {}
 '''
-    # system_prompt="You are a professional translator."
-    system_prompt=None
+    system_prompt="You are a professional translator."
+    # system_prompt=None
     response_template="### Target:"
     # response_template="assistant<|end_header_id|>"
     glossary_template="### Glossary:"
