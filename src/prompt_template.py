@@ -9,15 +9,15 @@ class TranslationTemplate:
     translation_template_wo_glossary='''Translate the following {} source text into {}.
 {}
 '''
-    system_prompt="You are a professional translator."
-    # system_prompt=None
+    # system_prompt="You are a professional translator."
+    system_prompt=None
     response_template="### Target:"
     # response_template="assistant<|end_header_id|>"
     glossary_template="### Glossary:"
     sentence_template="### Source:"
     
     ## default chat_template
-    # chat_template="{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message + '\n'}}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ content }}{% elif message['role'] == 'assistant' %}{{ content + '\\n' }}{% endif %}{% endfor %}"
+    chat_template="{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message + '\n'}}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ content }}{% elif message['role'] == 'assistant' %}{{ content + '\\n' }}{% endif %}{% endfor %}"
 
     ## llama3 
     # chat_template="{% set loop_messages = messages %}{% for message in loop_messages %}{% set content = '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' %}{% if loop.index0 == 0 %}{% set content = bos_token + content %}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}{% endif %}"
@@ -28,7 +28,7 @@ class TranslationTemplate:
     ## chatml
     # chat_template="{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\n'}}{% endif %}{% endfor %}"
 
-    chat_template=None
+    # chat_template=None
 
 # @dataclass
 # class TranslationTemplate:
