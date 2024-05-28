@@ -11,8 +11,8 @@ class TranslationTemplate:
 '''
     system_prompt="You are a professional translator. You are especially familiar with specialized knowledge and terms in economics, law, and accounting, as well as general everyday terms."
     # system_prompt=None
-    # response_template="### Target:"
-    response_template="<|CHATBOT_TOKEN|>"
+    response_template="### Translation:"
+    # response_template="<|CHATBOT_TOKEN|>"
     glossary_template="### Glossary:"
     sentence_template="### Source:"
     

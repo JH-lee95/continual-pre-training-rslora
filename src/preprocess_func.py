@@ -160,7 +160,7 @@ def make_translation_input_from_dataset(data,
                                         messages,
                                         tokenize=False,
                                         )
-    template=template.replace(tokenizer.bos_token,"")
+    # template=template.replace(tokenizer.bos_token,"")
     return {"text":template}
 
 
