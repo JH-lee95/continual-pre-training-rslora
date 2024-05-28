@@ -51,8 +51,8 @@ def parse_args():
     
     ## lora config
     parser.add_argument("--enable_lora",action="store_true",help="train wtih lora, full finetuning otherwise")
-    parser.add_argument("--lora_rank", type=int, default=8)
-    parser.add_argument("--lora_alpha", type=int, default=8)
+    parser.add_argument("--lora_rank", type=int, default=4)
+    parser.add_argument("--lora_alpha", type=int, default=4)
     parser.add_argument("--lora_dropout_rate", type=float, default=0.01)
     parser.add_argument("--lora_bias", default="none")
     parser.add_argument("--lora_task_type", type=str, default="CAUSAL_LM")

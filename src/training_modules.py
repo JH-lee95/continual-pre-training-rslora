@@ -72,8 +72,8 @@ class CreateTrainer():
   def create_trainer_sft(self,model,tokenizer,train_dataset,eval_dataset,response_template=None,data_collator=None):
 
     if response_template is not None:
-      response_template_with_context=f"{response_template}\n"
-      response_template_ids = tokenizer.encode(response_template_with_context, add_special_tokens=False)[2:]
+      response_template_with_context=f"{response_template}"
+      response_template_ids = tokenizer.encode(response_template_with_context, add_special_tokens=False)
       data_collator=DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
     else:
@@ -151,7 +151,7 @@ def load_model_tokenizer(base_model_path,
       model.gradient_checkpointing_enable()
 
   ##################### set tokenizer #######################
-  tokenizer = AutoTokenizer.from_pretrained(base_model_path,trust_remote_code=True)
+  tokenizer = AutoTokenizer.from_pretrained(base_model_path,trust_remote_code=True,cache_dir=cache_dir)
   ###### set special tokens #####
   if additional_special_tokens is not None:
     tokenizer.add_special_tokens({"additional_special_tokens": additional_special_tokens})

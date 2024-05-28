@@ -9,10 +9,10 @@ class TranslationTemplate:
     translation_template_wo_glossary='''Translate the following {} source text into {}.
 {}
 '''
-    system_prompt="You are a professional translator."
+    system_prompt="You are a professional translator. You are especially familiar with specialized knowledge and terms in economics, law, and accounting, as well as general everyday terms."
     # system_prompt=None
-    response_template="### Target:"
-    # response_template="assistant<|end_header_id|>"
+    # response_template="### Target:"
+    response_template="<|CHATBOT_TOKEN|>"
     glossary_template="### Glossary:"
     sentence_template="### Source:"
     
@@ -26,9 +26,9 @@ class TranslationTemplate:
     # chat_template="{% for message in messages %}{% if message['role'] == 'user' %}{{'Human: ' + message['content'].strip() + '\n'}}{% elif message['role'] == 'system' %}{{message['content'].strip()+ '\n'}}{% elif message['role'] == 'assistant' %}{{ 'Assistant:\n'  + message['content']}}{% endif %}{% endfor %}"
 
     ## chatml
-    chat_template="{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\n'}}{% endif %}{% endfor %}"
+    # chat_template="{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\n'}}{% endif %}{% endfor %}"
 
-    # chat_template=None
+    chat_template=None
 
 # @dataclass
 # class TranslationTemplate:

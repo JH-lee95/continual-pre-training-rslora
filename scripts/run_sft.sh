@@ -24,4 +24,10 @@ CUDA_VISIBLE_DEVICES=1 python src/run_training.py --base_model_dir microsoft/Phi
 CUDA_VISIBLE_DEVICES=1 python src/run_training.py --base_model_dir deepseek-ai/DeepSeek-V2-Lite-Chat --train_batch_size 1 --expr_desc "finetuning" --expr_name "Term-MT" --run_name "deepseek-data1.1k" --max_seq_length 8192 --learning_rate 1e-5 --train_dataset_dir /nvme0/data/training_dataset_1.1k --enable_lora --cache_dir /nvme0/models --gradient_checkpointing
 
 
-torchrun --nproc-per-node 4 src/run_training.py --base_model_dir allganize/Llama-3-Alpha-Ko-8B-Instruct --train_batch_size 1 --expr_desc "finetuning" --expr_name "Term-MT" --run_name "allganize-llama3-8b-data-new10k" --max_seq_length 8192 --learning_rate 1e-5 --train_dataset_dir /nvme0/data/training_dataset_new_10k --enable_lora --cache_dir /nvme0/models --gradient_checkpointing
+torchrun --nproc-per-node 4  src/run_training.py --base_model_dir maywell/Yi-Ko-34B-Instruct --train_batch_size 1 --expr_desc "finetuning" --expr_name "Term-MT" --run_name "yi-ko-34b-inst-data_new10k-5e6" --max_seq_length 4096 --learning_rate 5e-6 --train_dataset_dir /nvme0/data/training_dataset_new_10k --enable_lora --cache_dir /nvme0/models --gradient_checkpointing
+
+
+torchrun --nproc-per-node 4  src/run_training.py --base_model_dir beomi/Yi-Ko-34B --train_batch_size 1 --expr_desc "finetuning" --expr_name "Term-MT" --run_name "yi-ko-34b-data_new10k" --max_seq_length 4096 --learning_rate 5e-6 --train_dataset_dir /nvme0/data/training_dataset_new_10k --enable_lora --cache_dir /nvme0/models --gradient_checkpointing
+
+python src/run_training.py --base_model_dir CohereForAI/aya-23-35B --train_batch_size 1 --expr_desc "finetuning" --expr_name "Term-MT" --run_name "tmt-35b-data1.1k_refined" --max_seq_length 8192 --learning_rate 1e-5 --train_dataset_dir /nvme0/data/training_dataset_1.1k_refined --enable_lora --cache_dir /nvme0/models --gradient_checkpointing --lora_rank 4 --lora_alpha 4
+
