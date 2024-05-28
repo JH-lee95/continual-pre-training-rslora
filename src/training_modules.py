@@ -161,10 +161,11 @@ def load_model_tokenizer(base_model_path,
 
     if tokenizer.unk_token:
       tokenizer.pad_token=tokenizer.unk_token
-    if pad_token is not None:
-      tokenizer.pad_token=pad_token
-    if pad_token_id is not None:
-      tokenizer.pad_token_id=pad_token_id
+    else:
+      if pad_token is not None:
+        tokenizer.pad_token=pad_token
+      if pad_token_id is not None:
+        tokenizer.pad_token_id=pad_token_id
 
   tokenizer.padding_side="right"
 

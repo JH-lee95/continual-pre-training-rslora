@@ -26,9 +26,9 @@ class TranslationTemplate:
     # chat_template="{% for message in messages %}{% if message['role'] == 'user' %}{{'Human: ' + message['content'].strip() + '\n'}}{% elif message['role'] == 'system' %}{{message['content'].strip()+ '\n'}}{% elif message['role'] == 'assistant' %}{{ 'Assistant:\n'  + message['content']}}{% endif %}{% endfor %}"
 
     ## chatml
-    # chat_template="{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\n'}}{% endif %}{% endfor %}"
+    chat_template="{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\n'}}{% endif %}{% endfor %}"
 
-    chat_template=None
+    # chat_template=None
 
 # @dataclass
 # class TranslationTemplate:
