@@ -146,9 +146,9 @@ def make_translation_input_from_dataset(data,
         messages.insert(0,{"role": "system", "content": system_prompt})
 
     if return_output:
-        # messages.append({"role": "assistant", "content": f"{response_template}\n"+data[tgt]})
+        messages.append({"role": "assistant", "content": f"{response_template}\n"+data[tgt]})
 
-        messages.append({"role": "assistant", "content": data[tgt]})
+        # messages.append({"role": "assistant", "content": data[tgt]})
 
         template=tokenizer.apply_chat_template(
                                         messages,
