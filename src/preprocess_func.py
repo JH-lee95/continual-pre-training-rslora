@@ -154,18 +154,22 @@ def make_translation_input_from_dataset(data,
                                         messages,
                                         tokenize=False,
                                         )
+                                        # +tokenizer.eos_token
 
     else:
         template=tokenizer.apply_chat_template(
                                         messages,
                                         tokenize=False,
                                         )
-    # template=template.replace(tokenizer.bos_token,"")
+    # template=tokenizer.bos_token+template
     return {"text":template}
 
 
 def formatting_glossary(term_dict,glossary_template):
-    glossary=[f"{k}={v}" for k,v in term_dict.items()]
+    term_dict_items=term_dict.items()
+    random.shuffle(term_dict_items) #  To remove order bias
+
+    glossary=[f"{k}={v}" for k,v in term_dict_items]
     glossary_str="\n".join(glossary)
     glossary_str=f"{glossary_template}\n{glossary_str}".strip()
 

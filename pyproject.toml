@@ -32,7 +32,7 @@ wheel = "^0.43.0"
 setuptools = "^69.2.0"
 jupyter = "^1.0.0"
 ipykernel = "^6.29.3"
-aphrodite-engine = "^0.5.1"
+vllm = "^0.4.2"
 
 
 [build-system]
