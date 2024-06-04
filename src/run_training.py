@@ -116,6 +116,10 @@ def main(args):
     ######################################### model & tokenizer #########################################
     model,tokenizer=load_model_tokenizer(base_model_path=args.base_model_dir,gradient_checkpointing=args.gradient_checkpointing,cache_dir=args.cache_dir,use_unsloth=args.use_unsloth,pad_token=None,device_map=args.device_map)
  
+    if model.config.max_position_embeddings<args.max_seq_length:
+        model.config.max_position_embeddings=args.max_seq_length
+
+
     if args.enable_lora:
         model=get_lora_model(model,
                 r=args.lora_rank,
