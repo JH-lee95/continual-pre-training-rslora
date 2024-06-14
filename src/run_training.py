@@ -10,7 +10,8 @@ from training_modules import *
 from preprocess_func import make_translation_input_from_dataset
 from prompt_template import TranslationTemplate
 from datetime import datetime
-from datasets import concatenate_datasets
+from datasets import concatenate_datasets,load_datset,Dataset,DatasetDict
+import datasets
 
 def seed_everything(seed: int = 42):
     random.seed(seed)
@@ -34,12 +35,11 @@ def parse_args():
 
     ## hyper parameters
     parser.add_argument("--seed",type=int,default=42)
-    parser.add_argument("--optimizer",type=str,default="AdamW_torch")
+    parser.add_argument("--optimizer",type=str,default="AdamW")
     parser.add_argument("--scheduler",type=str,default="cosine_with_restarts")
-    parser.add_argument("--learning_rate", type=float, default=1e-5)
-    parser.add_argument("--dropout_rate", type=float, default=0.01)
+    parser.add_argument("--learning_rate", "-lr", type=float, default=1e-5)
     parser.add_argument("--max_seq_length", type=int, default=4096)
-    parser.add_argument("--weight_decay", type=float, default=0.01)
+    parser.add_argument("--weight_decay", type=float, default=0)
     parser.add_argument('--train_batch_size', type=int, default=4)
     parser.add_argument('--eval_batch_size', type=int, default=4) 
     parser.add_argument('--num_workers', type=int, default=4)
@@ -51,19 +51,13 @@ def parse_args():
     
     ## lora config
     parser.add_argument("--enable_lora",action="store_true",help="train wtih lora, full finetuning otherwise")
-    parser.add_argument("--lora_rank", type=int, default=4)
-    parser.add_argument("--lora_alpha", type=int, default=4)
+    parser.add_argument("--lora_rank", type=int, default=256)
+    parser.add_argument("--lora_alpha", type=int, default=256)
     parser.add_argument("--lora_dropout_rate", type=float, default=0.01)
     parser.add_argument("--lora_bias", default="none")
     parser.add_argument("--lora_task_type", type=str, default="CAUSAL_LM")
-    parser.add_argument("--lora_target_modules", type=str, nargs='*', default=["q_proj", "k_proj", "v_proj", "o_proj","gate_proj","down_proj","up_proj"])
-
-    ## galore config
-    parser.add_argument("--enable_galore", action="store_true", help="Whether or not to use galore low rank optimizer.")
-    parser.add_argument("--galore_rank", type=int, default=64) 
-    parser.add_argument("--galore_update_proj_gap", type=int, default=100)
-    parser.add_argument("--galore_scale", type=float, default=0.1)
-    parser.add_argument("--galore_proj_type", type=str, default="std")
+    parser.add_argument("--use_rslora", type=bool, default=True)
+    parser.add_argument("--lora_target_modules", type=str, nargs='*', default=["q_proj", "k_proj", "v_proj", "o_proj","gate_proj","down_proj","up_proj","embed_tokens", "lm_head"])
     
     ## etc
     parser.add_argument("--logging_steps",type=int,default=100)
@@ -73,6 +67,7 @@ def parse_args():
     parser.add_argument("--expr_desc",type=str,help = "description for experiment", default = None)
     parser.add_argument("--run_name",type=str,help = "run name", default = None)
     parser.add_argument("--train",type=bool, default=True)
+
     parser.add_argument("--eval",type=bool, default=False)
     parser.add_argument("--test",type=bool, default=False)
     parser.add_argument("--dataset_text_field",type=str, default="text")
@@ -127,42 +122,35 @@ def main(args):
                 lora_dropout=args.lora_dropout_rate,
                 bias=args.lora_bias,
                 task_type=args.lora_task_type,
-                target_modules=args.lora_target_modules)
+                target_modules=args.lora_target_modules,
+                use_rslora=args.use_rslora ) # rank stabilized lora
 
     ######################################################################################################
 
     ######################################### dataset ####################################################
-    train_dataset=load_and_prepare_dataset(dataset_dir=args.train_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template_wo_glossary":TranslationTemplate.translation_template_wo_glossary,
-                                                                                                                                                            "prompt_template_w_glossary":TranslationTemplate.translation_template_w_glossary,
-                                                                                                                                                            "chat_template":TranslationTemplate.chat_template,
-                                                                                                                                                            "system_prompt":TranslationTemplate.system_prompt,
-                                                                                                                                                            "tokenizer":tokenizer,
-                                                                                                                                                            "response_template":TranslationTemplate.response_template,
-                                                                                                                                                            "glossary_template":TranslationTemplate.glossary_template,
-                                                                                                                                                            "sentence_template":TranslationTemplate.sentence_template,
-                                                                                                                                                            "text_split":False}).shuffle(seed=args.seed)
+    dataset_ko=DatasetDict.load_from_disk()
+    dataset_en=DatasetDict.load_from_disk()
 
-    if args.eval:
-        eval_dataset=load_and_prepare_dataset(args.eval_dataset_dir,preprocess_func=make_translation_input_from_dataset,fn_kwargs={"prompt_template":TranslationTemplate.translation_template,"tokenizer":tokenizer,"glossary_template":TranslationTemplate.glossary_template,"sentence_template":TranslationTemplate.sentence_template})
+    train_dataset=concatenate_datasets([dataset_ko["train"].select_columns("text"),dataset_en["train"].select_columns("text")]).shuffle()
+    eval_dataset=concatenate_datasets([dataset_en["test"].select_columns("text"),dataset_en["test"].select_columns("text")]).shuffle()
     #######################################################################################################
 
 
     ######################################## Optimizer & Scheduler #########################################
-    if args.enable_galore:
-        args.optim_args=f"rank={args.galore_rank}, update_proj_gap={args.galore_update_proj_gap}, scale={args.galore_scale}, proj_type={args.galore_proj_type}"
-    else:
-        args.optim_args=None
     total_update_steps=int((len(train_dataset)*args.num_epochs)/(args.train_batch_size*args.gradient_accumulation_steps*torch.cuda.device_count()))
+    optimizer_kwargs={"weight_decay":args.weight_decay}
     args.scheduler_kwargs={"num_cycles":0.3}
+
+    optimizer_scheduler=load_optimizer_scheduler(model,args.optimizer_name,args.scheduler_name,total_update_steps,args.warmup_ratio,args.learning_rate,optimizer_kwargs,scheduler_kwargs)
     #######################################################################################################
 
-    ######################################### Trainer Setiings #########################################
+    ######################################### Trainer Settings #########################################
     if args.eval_steps is None:
         args.eval_steps=int(total_update_steps/args.num_save_per_epoch)
 
     create_trainer=CreateTrainer(args)
     training_arguments=create_trainer.training_arguments
-    trainer=create_trainer.create_trainer_sft(model,tokenizer,train_dataset,eval_dataset=None,response_template=TranslationTemplate.response_template)
+    trainer=create_trainer.create_trainer_sft(model,tokenizer,optimizer,scheduler,train_dataset,eval_dataset=eval_dataset)
     print("detected device : ",training_arguments.device)
     ######################################################################################################
     
@@ -174,13 +162,13 @@ def main(args):
       else:
         trainer.train()
 
-    # Logging dataset
-    if os.getenv("LOCAL_RANK","0"):
-        last_run_id = mlflow.last_active_run().info.run_id
-        with mlflow.start_run(run_id=last_run_id):
-            mlflow.log_input(mlflow.data.from_huggingface(train_dataset,data_files=args.train_dataset_dir), context="training dataset")
-            if args.eval:
-                mlflow.log_input(mlflow.data.from_huggingface(eval_dataset,data_files=args.eval_dataset_dir), context="evaluation dataset")
+    # # Logging dataset
+    # if os.getenv("LOCAL_RANK","0"):
+    #     last_run_id = mlflow.last_active_run().info.run_id
+    #     with mlflow.start_run(run_id=last_run_id):
+    #         mlflow.log_input(mlflow.data.from_huggingface(train_dataset,data_files=args.train_dataset_dir), context="training dataset")
+    #         if args.eval:
+    #             mlflow.log_input(mlflow.data.from_huggingface(eval_dataset,data_files=args.eval_dataset_dir), context="evaluation dataset")
 
     
 if __name__=="__main__":

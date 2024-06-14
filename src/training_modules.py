@@ -46,56 +46,105 @@ class CreateTrainer():
         logging_steps=self.args.logging_steps,
         report_to=["mlflow"],
 
-        ## optimizer settings
-        optim=self.args.optimizer.lower(),
-        learning_rate=self.args.learning_rate,
-        weight_decay=self.args.weight_decay,
-        optim_args=self.args.optim_args,
-        optim_target_modules=[r'*attn*',r'*mlp*'] if self.args.enable_galore else None,
-        gradient_accumulation_steps=self.args.gradient_accumulation_steps,
-
-        ## scheduler settings
-        lr_scheduler_type=self.args.scheduler.lower(),
-        warmup_ratio=self.args.warmup_ratio,
-        lr_scheduler_kwargs=self.args.scheduler_kwargs,
-        num_train_epochs=self.args.num_epochs,
-
         ## dataloader settings
         per_device_train_batch_size=self.args.train_batch_size,
         per_device_eval_batch_size=self.args.eval_batch_size,
         dataloader_num_workers=self.args.num_workers,
-        
-        # neft noise
-        # neftune_noise_alpha=5,
         )
 
-  def create_trainer_sft(self,model,tokenizer,train_dataset,eval_dataset,response_template=None,data_collator=None):
 
-    if response_template is not None:
-      response_template_with_context=f"{response_template}\n"
-      response_template_ids = tokenizer.encode(response_template_with_context, add_special_tokens=False)[2:]
-      data_collator=DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
+  def create_trainer_sft(self,model,tokenizer,optimizer,scheduler,train_dataset,eval_dataset,data_collator=None)
 
-    else:
-      if data_collator is None:
-        data_collator=DefaultDataCollator()
+    if data_collator is None:
+      data_collator=DefaultDataCollator()
 
     trainer = SFTTrainer(
     args=self.training_arguments,
     model=model,
     tokenizer=tokenizer,
+    optimizer=(optimizer,scheduler),
     train_dataset=train_dataset,
     eval_dataset=eval_dataset if self.args.eval else None,
     data_collator=data_collator,
     max_seq_length= self.args.max_seq_length,
-    dataset_text_field=self.args.dataset_text_field if self.args.dataset_text_field else None,
     )
-
 
     return trainer
 
   def create_trainer_basic(self):
     pass
+
+
+def load_optimizer_scheduler(model,
+                        optimizer_name:str,
+                        scheduler_name:str,
+                        total_update_steps:int,
+                        warmup_ratio:float,
+                        lr=1e-5,
+                        optimizer_kwargs=None, # ex) {"weight_decay" : 0.01}
+                        scheduler_kwargs:dict=None, # ex) {"num_cycles":0.3}
+                        ):
+
+    # decopuled learning rate
+    params= [
+        {
+            "params": [p for n, p in model.named_parameters() if "proj" in n],
+            "lr": lr,  # higher learning rate for mlp and attention layers
+        },
+        {
+            "params": [p for n, p in model.named_parameters() if "lm_head" in n],
+            "lr": lr*0.1, # lower learning rate for lmhead
+        },
+        {
+            "params": [p for n, p in named_parameters() if "embed_tokens" in n],
+            "lr": lr*0.1,  # lower learning rate for embedding layer
+        },
+    ]
+                  
+
+    if optimizer_name.lower()=="adamw":
+        optimizer=AdamW(params=params,
+                        **optimizer_kwargs,
+                        )
+
+    elif optimizer_name.lower()=="adamw8bit".lower():
+        optimizer = bnb.optim.AdamW8bit(params=params,
+                        **optimizer_kwargs,
+                        )
+
+        for module in model.modules():
+            if isinstance(module, torch.nn.Embedding):
+                bnb.optim.GlobalOptimManager.get_instance().register_module_override(
+                    module, 'weight', {'optim_bits': 32}
+                )
+
+    elif optimizer_name.lower()=="pagedadamw8bit":
+        optimizer = bnb.optim.PagedAdamW8bit(params=params,
+                        **optimizer_kwargs,
+                        )
+
+        for module in model.modules():
+            if isinstance(module, torch.nn.Embedding):
+                bnb.optim.GlobalOptimManager.get_instance().register_module_override(
+                    module, 'weight', {'optim_bits': 32}
+                )
+
+    if scheduler_name.lower()=="cosine_with_hard_restarts_schedule_with_warmup":
+
+      scheduler=get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
+                                                                  num_warmup_steps=total_update_steps*warmup_ratio,
+                                                                  num_training_steps=total_update_steps,
+                                                                  **scheduler_kwargs)
+    elif scheduler_name.lower()=="cosine_schedule_with_warmup":
+
+      scheduler=get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
+                                                                  num_warmup_steps=total_update_steps*warmup_ratio,
+                                                                  num_training_steps=total_update_steps,
+                                                                  **scheduler_kwargs)
+                                         
+    return optimizer,scheduler
+
+
 
 def load_model_tokenizer(base_model_path,
             task_type:str="causal_lm",
@@ -120,7 +169,6 @@ def load_model_tokenizer(base_model_path,
                     )
 
     else:
-
       if device_map is not None:
         model = AutoModelForCausalLM.from_pretrained(
             base_model_path,
@@ -175,27 +223,6 @@ def load_model_tokenizer(base_model_path,
 
 
   return model,tokenizer
-
-def load_and_prepare_dataset(dataset=None,dataset_dir:str=None,preprocess_func=None,fn_kwargs:dict=None):
-  '''
-  preprocess_func : define your own preprocessing function. This sholud take a dataset object as its argument
-  '''
-
-  if dataset is None and dataset_dir is None:
-    raise "Either dataset or dataset_dir should be given"
-  
-  if dataset_dir is not None:
-    try:
-      dataset=load_dataset(dataset_dir)
-      print("---load dataset from huggingface hub---")
-    except:
-      dataset=Dataset.load_from_disk(dataset_dir)
-      print("---load dataset from local disk---")
-
-  if preprocess_func is not None:
-    dataset=dataset.map(preprocess_func,fn_kwargs=fn_kwargs)
-
-  return dataset
 
 
 def get_lora_model(model,use_unsloth=False,**lora_kwargs):

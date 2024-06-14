@@ -1,4 +1,4 @@
-ipynbs/
 */__pycache__/
 mlruns/
 .ipynb_checkpoints
+.cache
