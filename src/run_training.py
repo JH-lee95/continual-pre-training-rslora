@@ -33,7 +33,7 @@ def parse_args():
 
     ## hyper parameters
     parser.add_argument("--seed",type=int,default=42)
-    parser.add_argument("--optimizer",type=str,default="AdamW_8bit")
+    parser.add_argument("--optimizer",type=str,default="AdamW")
     parser.add_argument("--scheduler",type=str,default="cosine_with_restarts")
     parser.add_argument("--learning_rate", "-lr", type=float, default=1e-5)
     parser.add_argument("--max_seq_length", type=int, default=4096)
@@ -152,6 +152,8 @@ def main(args):
     ######################################### Trainer Settings #########################################
     if args.eval_steps is None:
         args.eval_steps=int(total_update_steps/args.num_save_per_epoch)
+
+    # args.eval_steps=2
 
     create_trainer=CreateTrainer(args)
     training_arguments=create_trainer.training_arguments
