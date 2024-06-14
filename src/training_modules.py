@@ -53,7 +53,7 @@ class CreateTrainer():
         )
 
 
-  def create_trainer_sft(self,model,tokenizer,optimizer,scheduler,train_dataset,eval_dataset,data_collator=None)
+  def create_trainer_sft(self,model,tokenizer,optimizer,scheduler,train_dataset,eval_dataset,data_collator=None):
 
     if data_collator is None:
       data_collator=DefaultDataCollator()
@@ -62,7 +62,8 @@ class CreateTrainer():
     args=self.training_arguments,
     model=model,
     tokenizer=tokenizer,
-    optimizer=(optimizer,scheduler),
+    optimizers=(optimizer,scheduler),
+    dataset_text_field="text",
     train_dataset=train_dataset,
     eval_dataset=eval_dataset if self.args.eval else None,
     data_collator=data_collator,
@@ -96,18 +97,18 @@ def load_optimizer_scheduler(model,
             "lr": lr*0.1, # lower learning rate for lmhead
         },
         {
-            "params": [p for n, p in named_parameters() if "embed_tokens" in n],
+            "params": [p for n, p in model.named_parameters() if "embed_tokens" in n],
             "lr": lr*0.1,  # lower learning rate for embedding layer
         },
     ]
                   
 
-    if optimizer_name.lower()=="adamw":
+    if optimizer_name.lower()=="adamw" or optimizer_name.lower()=="adamw_torch":
         optimizer=AdamW(params=params,
                         **optimizer_kwargs,
                         )
 
-    elif optimizer_name.lower()=="adamw8bit".lower():
+    elif optimizer_name.lower()=="adamw8bit".lower() or optimizer_name.lower()=="adamw_8bit".lower():
         optimizer = bnb.optim.AdamW8bit(params=params,
                         **optimizer_kwargs,
                         )
@@ -118,7 +119,7 @@ def load_optimizer_scheduler(model,
                     module, 'weight', {'optim_bits': 32}
                 )
 
-    elif optimizer_name.lower()=="pagedadamw8bit":
+    elif optimizer_name.lower()=="pagedadamw8bit" or optimizer_name.lower()=="paged_adamw_8bit":
         optimizer = bnb.optim.PagedAdamW8bit(params=params,
                         **optimizer_kwargs,
                         )
@@ -129,7 +130,7 @@ def load_optimizer_scheduler(model,
                     module, 'weight', {'optim_bits': 32}
                 )
 
-    if scheduler_name.lower()=="cosine_with_hard_restarts_schedule_with_warmup":
+    if scheduler_name.lower()=="cosine_with_hard_restarts_schedule_with_warmup" or scheduler_name.lower()=="cosine_with_restarts":
 
       scheduler=get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
                                                                   num_warmup_steps=total_update_steps*warmup_ratio,
