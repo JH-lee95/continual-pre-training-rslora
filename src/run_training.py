@@ -34,13 +34,13 @@ def parse_args():
     ## hyper parameters
     parser.add_argument("--seed",type=int,default=42)
     parser.add_argument("--optimizer",type=str,default="AdamW")
-    parser.add_argument("--scheduler",type=str,default="cosine_with_restarts")
+    parser.add_argument("--scheduler",type=str,default="cosine_schedule_with_warmup")
     parser.add_argument("--learning_rate", "-lr", type=float, default=1e-5)
     parser.add_argument("--max_seq_length", type=int, default=4096)
     parser.add_argument("--weight_decay", type=float, default=0)
     parser.add_argument('--train_batch_size', type=int, default=4)
     parser.add_argument('--eval_batch_size', type=int, default=4) 
-    parser.add_argument('--num_workers', type=int, default=4)
+    parser.add_argument('--num_workers', type=int, default=16)
     parser.add_argument('--num_epochs', type=int, default=1)
     parser.add_argument("--gradient_accumulation_steps",type=int,default=1)
     parser.add_argument("--gradient_checkpointing",action="store_true",help="reducing required memory size but slower training")
@@ -125,7 +125,8 @@ def main(args):
                 bias=args.lora_bias,
                 task_type=args.lora_task_type,
                 target_modules=args.lora_target_modules,
-                use_rslora=args.use_rslora ) # rank stabilized lora
+                use_rslora=args.use_rslora
+                ) # rank stabilized lora
 
     ######################################################################################################
 
@@ -133,11 +134,11 @@ def main(args):
     dataset_ko=DatasetDict.load_from_disk("/nvme0/data/KOREAN-WEBTEXT-sampled_150K_380MT")
     dataset_en=DatasetDict.load_from_disk("/nvme0/data/fineweb-edu-sampled_15K_38MT")
 
-    train_dataset=concatenate_datasets([dataset_ko["train"].select_columns("text"),dataset_en["train"].select_columns("text")]).shuffle()
-    eval_dataset=concatenate_datasets([dataset_en["test"].select_columns("text"),dataset_en["test"].select_columns("text")]).shuffle()
+    train_dataset=concatenate_datasets([dataset_ko["train"].select_columns("text"),dataset_en["train"].select_columns("text")]).shuffle().select(range(10000))
+    eval_dataset=concatenate_datasets([dataset_en["test"].select_columns("text"),dataset_en["test"].select_columns("text")]).shuffle().select(range(1000))
 
-    train_dataset=train_dataset.map(lambda x: {"text":f"{tokenizer.bos_token}{x['text']}{tokenizer.eos_token}"})
-    eval_dataset=eval_dataset.map(lambda x: {"text":f"{tokenizer.bos_token}{x['text']}{tokenizer.eos_token}"})
+    train_dataset=train_dataset.map(lambda x: {"text":f"{tokenizer.bos_token}{x['text']}{tokenizer.eos_token}"},num_proc=16)
+    eval_dataset=eval_dataset.map(lambda x: {"text":f"{tokenizer.bos_token}{x['text']}{tokenizer.eos_token}"},num_proc=16)
     #######################################################################################################
 
 

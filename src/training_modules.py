@@ -37,6 +37,7 @@ class CreateTrainer():
         ddp_find_unused_parameters=False,
         do_train=True,
         do_eval=True if self.args.eval else False,
+        num_train_epochs=self.args.num_epochs,
 
         ## training settings
         fp16= True if not torch.cuda.is_bf16_supported() else False,
@@ -46,6 +47,7 @@ class CreateTrainer():
         save_total_limit=self.args.save_total_limit,
         logging_steps=self.args.logging_steps,
         report_to=["mlflow"],
+        # optim="adamw_torch",
 
         ## dataloader settings
         per_device_train_batch_size=self.args.train_batch_size,
@@ -55,6 +57,13 @@ class CreateTrainer():
 
 
   def create_trainer_sft(self,model,tokenizer,optimizer,scheduler,train_dataset,eval_dataset):
+    def formatting_func(examples):
+      outputs=[]
+
+      for idx in range(len(examples['text'])):
+        outputs.append(f"{tokenizer.bos_token}{examples['text'][idx]}{tokenizer.eos_token}")
+
+      return outputs
 
 
     trainer = SFTTrainer(
@@ -63,6 +72,7 @@ class CreateTrainer():
     tokenizer=tokenizer,
     optimizers=(optimizer,scheduler),
     dataset_text_field="text",
+    # formatting_func=formatting_func,
     train_dataset=train_dataset,
     eval_dataset=eval_dataset if self.args.eval else None,
     max_seq_length= self.args.max_seq_length,
@@ -87,19 +97,19 @@ def load_optimizer_scheduler(model,
     # decopuled learning rate
     params= [
         {
-            "params": [p for n, p in model.named_parameters() if "proj" in n and if p.requires_grad()],
+            "params": [p for n, p in model.named_parameters() if "proj" in n and p.requires_grad],
             "lr": lr,  # higher learning rate for mlp and attention layers
         },
         {
-            "params": [p for n, p in model.named_parameters() if "lm_head" in n and if p.requires_grad()],
+            "params": [p for n, p in model.named_parameters() if "lm_head" in n and p.requires_grad],
             "lr": lr*0.1, # lower learning rate for lmhead
         },
         {
-            "params": [p for n, p in model.named_parameters() if "embed_tokens" in n and if p.requires_grad()],
+            "params": [p for n, p in model.named_parameters() if "embed_tokens" in n and p.requires_grad],
             "lr": lr*0.1,  # lower learning rate for embedding layer
         },
     ]
-    ipdb.set_trace() # 
+    # ipdb.set_trace() # 
 
     if optimizer_name.lower()=="adamw" or optimizer_name.lower()=="adamw_torch":
         optimizer=AdamW(params=params,
